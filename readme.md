@@ -10,7 +10,7 @@ You can use these URLs in https://app.getmetastream.com which is a great project
 
 [Plex](https://plex.tv) has a "watch together" feature (give it a try!), but it works very unstable for Raspberry Pi 4 setup. The Raspberry Pi 4 is not powerful enough to transcode media files on the fly. As a result, everyone in the party must set up their own players each time to choose original quality, which is not always available. Additionally, it is not scalable for many people, as you must invite each person to the party.
 
-This tool is designed to work with original quality (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configuring Plex Server. See [Prerequisites](#prerequisites) for more details.
+This tool is designed to work **with original quality** (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configuring Plex Server. See [Prerequisites](#prerequisites) for more details.
 
 ## Features
 
@@ -28,22 +28,37 @@ This tool is designed to work with original quality (without server transcoding)
     sudo apt update && sudo apt install ffmpeg -y
     ```
 4. Python packages:
+
+   <details><summary>Using pipx</summary>
+
+   ```bash
+   pipx install git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
+   ```
+
+   </details>
+
+   <details><summary>Using pip</summary>
+
+
     ```bash
     # Create a virtual environment and install dependencies
     python -m venv venv && source venv/bin/activate
-    pip install -r requirements.txt
+    pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
     ```
+
+    </details>
+
 5. Static IPv4 or IPv6 address for your server.
 
 ## Usage
 
 > [!NOTE]
-> **Tool can work with Nginx or Plex. You can setup one of them or both on different ports.**
+> Tool can work with Nginx or Plex. You can setup one of them or both on different ports.
 
 ### Nginx
 
 > [!TIP]
-> **HTTPS is highly recommended for security reasons. See [Nginx HTTPS with Router Domain](#nginx-https-with-router-domain) for more details.**
+> HTTPS is highly recommended for security reasons. See [Nginx HTTPS with Router Domain](#nginx-https-with-router-domain) for more details.
 
 ```bash
 # Install Nginx
@@ -57,7 +72,7 @@ python main.py stream --media-file /path/to/media/file.mp4 --audio-lang jp --sub
 ### Plex
 
 > [!IMPORTANT]
-> **Plex direct url would expose plex token. Use it only in a secure environments. To change the token, you need to change the plex account password and with logout from all devices checkmark.**
+> Plex direct url would expose plex token. Use it only in a secure environments. To change the token, you need to change the plex account password with 'logout from all devices' checkmark.
 
 Setup [Plex Media Server](https://plex.tv)
 
