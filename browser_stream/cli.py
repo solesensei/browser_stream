@@ -69,6 +69,9 @@ def nginx_command(
         conf.nginx_conf_name or "mp4_stream",
         help="Name of the Nginx site configuration file",
     ),
+    allow_index: bool = typer.Option(
+        False, help="Allow directory listing in Nginx configuration"
+    ),
     reset: bool = typer.Option(
         False, help="Remove Nginx configuration files and symlinks related to site"
     ),
@@ -110,6 +113,7 @@ def nginx_command(
         ipv4=ipv4,
         secret=x_token,
         ssl=ssl,
+        allow_index=allow_index,
         server_name=domain_name,
     )
     if site_available.exists() and fs.read_file(site_available) == nginx_conf_data_new:

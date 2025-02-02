@@ -12,15 +12,17 @@ import dataclasses
 
 
 def prompt(message: str, **kwargs) -> str:
-    return typer.prompt(message, **kwargs)
+    return typer.prompt(typer.style(message, bold=True), **kwargs)
 
 
 def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
-    return typer.confirm(message, default=default, abort=abort)
+    return typer.confirm(
+        typer.style(f"🤔 {message}", bold=True), default=default, abort=abort
+    )
 
 
 def prompt_path(message: str) -> Path:
-    return typer.prompt(message, type=Path)
+    return typer.prompt(typer.style(message, bold=True), type=Path)
 
 
 def format_list(data: list[str]) -> str:
