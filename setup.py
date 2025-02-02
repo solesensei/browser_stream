@@ -19,7 +19,7 @@ setup(
     include_package_data=True,
     entry_points={
         "console_scripts": [
-            "browser-streamer=main:run",
+            "browser-streamer=browser_stream.cli:run",
         ],
     },
     install_requires=install_requires,

@@ -8,6 +8,7 @@ import typing as tp
 import subprocess
 import functools
 import urllib.parse
+import dataclasses
 
 import typer
 
@@ -15,11 +16,18 @@ import browser_stream.utils as utils
 from browser_stream.echo import echo
 
 
+conf = utils.Config.load()
+
+
 class Exit(Exception):
     def __init__(self, message: str, code: int = 1) -> None:
         self.message = message
         self.code = code
 
+@dataclasses.dataclass
+class StreamMedia:
+    path: Path
+    subtitle_path: Path | None = None
 
 class PlexAPI:
     """Wrapper around Plex API"""
@@ -384,3 +392,135 @@ class FS:
     def read_file(path: Path) -> str:
         with path.open() as f:
             return f.read()
+
+
+
+def build_stream_url_nginx(
+    media_file: Path,
+) -> str:
+    """Build stream URL for media file using Nginx server"""
+    assert conf.nginx_secret, "Nginx secret not found"
+    assert conf.host_url, "Host URL not found"
+    assert conf.nginx_port, "Nginx port not found"
+    return f"http://{conf.host_url}:{conf.nginx_port}/media/{media_file.as_posix()}?x-token={conf.nginx_secret}"
+
+
+def build_stream_url_plex(
+    media_file: Path,
+) -> str:
+    """Build stream URL for media file using Plex server"""
+    assert conf.plex_x_token, "Plex X-Token not found"
+    assert conf.host_url, "Host URL not found"
+    assert conf.plex_server_id, "Plex server ID not found"
+    plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
+    return plex.get_stream_url(media_file)
+
+
+def prepare_file_to_stream(
+    media_file: Path,
+    audio_file: Path | None = None,
+    audio_lang: str | None = None,
+    subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
+) -> StreamMedia:
+    fs = FS()
+    ffmpeg = Ffmpeg()
+    if fs.get_extension(media_file) != ".mp4":
+        output_file = media_file.with_suffix(".mp4")
+        if output_file.exists() and not utils.confirm(
+            f"File already exists: {output_file}, do you want to overwrite it?"
+        ):
+            echo.warning("Skipping conversion. File already exists")
+            media_file = output_file
+        else:
+            media_file = ffmpeg.convert_to_mp4(
+                media_file,
+                output_file,
+                audio_file=audio_file,
+                audio_lang=audio_lang,
+                subtitle_file=subtitle_file,
+                subtitle_lang=subtitle_lang,
+            )
+    if subtitle_file is None and subtitle_lang:
+        subtitle_file = ffmpeg.extract_subtitle(media_file, subtitle_lang)
+
+    return StreamMedia(
+        path=media_file,
+        subtitle_path=subtitle_file,
+    )
+
+
+def stream_nginx(
+    media_file: Path,
+    audio_file: Path | None = None,
+    audio_lang: str | None = None,
+    subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
+    do_not_convert: bool = False,
+):
+    """
+    Check Nginx configuration, convert file and prints the URL to stream media file
+    """
+    fs = FS()
+    nginx = Nginx()
+    ffmpeg = Ffmpeg()
+    html = HTML()
+
+    if not conf.nginx_secret:
+        raise typer.BadParameter(
+            "Nginx configuration not found, run `browser-streamer nginx` first"
+        )
+    if not conf.media_dir:
+        raise typer.BadParameter(
+            "Media directory not found, run `browser-streamer nginx` first"
+        )
+    if not media_file.as_posix().startswith(conf.media_dir.as_posix()):
+        raise typer.BadParameter(
+            f"Media file must be in media directory: {conf.media_dir}",
+            param_hint="media-file",
+        )
+
+    if not do_not_convert:
+        stream_media = prepare_file_to_stream(
+            media_file=media_file,
+            audio_file=audio_file,
+            audio_lang=audio_lang,
+            subtitle_file=subtitle_file,
+            subtitle_lang=subtitle_lang,
+        )
+        media_file = stream_media.path
+        subtitle_file = stream_media.subtitle_path
+
+    if subtitle_file:
+        echo.info(f"Create HTML file with video and subtitles: {media_file.with_suffix('.html')}")
+        html_data = html.get_video_html_with_subtitles(
+            video_url=build_stream_url_nginx(media_file),
+            subtitles_url=build_stream_url_nginx(subtitle_file),
+            language=subtitle_lang or "English",
+        )
+        media_file = media_file.with_suffix(".html")
+        fs.write_file(media_file, html_data)
+
+    echo.info('Preparation done')
+    echo.info(f"Stream media file using Nginx server: {build_stream_url_nginx(media_file)}")
+
+
+def stream_plex(
+    media_file: Path,
+    audio_lang: str | None = None,
+    subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
+    do_not_convert: bool = False,
+    
+):
+    """
+    Check file exists on Plex server, convert file and prints the URL to stream media file
+    """
+    fs = FS()
+    ffmpeg = Ffmpeg()
+    html = HTML()
+
+    if not conf.plex_x_token:
+        raise typer.BadParameter(
+            "Plex X-Token not found, run `browser-streamer plex` first"
+        )
