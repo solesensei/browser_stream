@@ -8,7 +8,7 @@ You can use these URLs in https://app.getmetastream.com which is a great project
 
 ## Why not using Plex directly?
 
-Plex has a "watch together" feature (give it a try!), but it works very unstable for Raspberry Pi 4 setup. The Raspberry Pi 4 is not powerful enough to transcode media files on the fly. As a result, everyone in the party must set up their own players each time to choose original quality, which is not always available. Additionally, it is not scalable for many people, as you must invite each person to the party.
+[Plex](https://plex.tv) has a "watch together" feature (give it a try!), but it works very unstable for Raspberry Pi 4 setup. The Raspberry Pi 4 is not powerful enough to transcode media files on the fly. As a result, everyone in the party must set up their own players each time to choose original quality, which is not always available. Additionally, it is not scalable for many people, as you must invite each person to the party.
 
 This tool is designed to work with original quality (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configuring Plex Server. See [Prerequisites](#prerequisites) for more details.
 
@@ -23,7 +23,7 @@ This tool is designed to work with original quality (without server transcoding)
 
 1. Python 3.10 or higher (use [pyenv](https://github.com/pyenv/pyenv) if needed).
 2. Nginx (if using Nginx) or configured Plex Media Server (if using Plex)
-3. FFmpeg:
+3. FFmpeg (for media encoding):
     ```bash
     sudo apt update && sudo apt install ffmpeg -y
     ```
@@ -37,13 +37,13 @@ This tool is designed to work with original quality (without server transcoding)
 
 ## Usage
 
->![NOTE]
-> Tool can work with Nginx or Plex. You can setup one of them or both on different ports.
+> [!NOTE]
+> **Tool can work with Nginx or Plex. You can setup one of them or both on different ports.**
 
 ### Nginx
 
->![TIP]
-> HTTPS is highly recommended for security reasons. See [Nginx HTTPS with Router Domain](#nginx-https-with-router-domain) for more details.
+> [!TIP]
+> **HTTPS is highly recommended for security reasons. See [Nginx HTTPS with Router Domain](#nginx-https-with-router-domain) for more details.**
 
 ```bash
 # Install Nginx
@@ -56,8 +56,8 @@ python main.py stream --media-file /path/to/media/file.mp4 --audio-lang jp --sub
 
 ### Plex
 
->![IMPORTANT]
-> Plex direct url would expose plex token. Use it only in a secure environments. To change the token, you need to change the plex account password and with logout from all devices checkmark.
+> [!IMPORTANT]
+> **Plex direct url would expose plex token. Use it only in a secure environments. To change the token, you need to change the plex account password and with logout from all devices checkmark.**
 
 Setup [Plex Media Server](https://plex.tv)
 
@@ -73,7 +73,7 @@ python main.py stream --media-file /path/to/media/file.mp4 --audio-lang jp --sub
 ## Nginx HTTPS with Router Domain or Dynamic DNS
 
 If your router provides a domain name for local network devices, you can use it to stream media over HTTPS.
-Alternatively, you can use a dynamic DNS service to get a public domain name for your server and configre port forwarding in your router settings.
+Alternatively, you can use a dynamic DNS (like noip.com) service to get a public domain name for your server and configre port forwarding in your router settings.
 
 1. Set up device sharing in your router settings with a public domain name.
 2. Install [Certbot](https://certbot.eff.org/) and obtain a certificate for your domain:
