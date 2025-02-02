@@ -379,8 +379,9 @@ class FS:
             command = ["sudo", "-S", "tee", path.as_posix()]
             password = utils.get_sudo_pass(command)
             utils.run_process(command, input_=f"{password}\n{content}\n")
-        with path.open("w") as f:
-            f.write(content + "\n")
+        else:
+            with path.open("w") as f:
+                f.write(content + "\n")
 
     @staticmethod
     def create_symlink(src: Path, dst: Path, sudo: bool = False):
