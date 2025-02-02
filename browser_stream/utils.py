@@ -43,6 +43,8 @@ def run_process(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess:
     command_str = " ".join(command)
+    if config.PROMPT_COMMANDS and not confirm(f"Run command: {command_str}"):
+        raise ValueError("Aborted")
     echo.debug(f"Running command: {command_str}")
     process = subprocess.Popen(
         command,

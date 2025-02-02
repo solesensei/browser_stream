@@ -115,6 +115,7 @@ def nginx_command(
     if site_available.exists() and fs.read_file(site_available) == nginx_conf_data_new:
         echo.info("Nginx configuration is up-to-date")
         return
+    echo.info("Generating Nginx configuration")
     fs.write_file(site_available, nginx_conf_data_new, sudo=True)
     conf.media_dir = media_dir
     conf.nginx_port = port
