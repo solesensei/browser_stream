@@ -391,7 +391,7 @@ class FS:
             return
         echo.info(f"Creating symlink: {src} -> {dst}")
         if sudo:
-            command = ["sudo", "-S", "ln", "-sf", src, dst]
+            command = ["sudo", "-S", "ln", "-sf", src.as_posix(), dst.as_posix()]
             password = utils.get_sudo_pass(command)
             utils.run_process(command, input_=password)
         else:
@@ -405,7 +405,7 @@ class FS:
             raise Exit(f"Path is not a symlink: {path}")
         echo.info(f"Removing symlink: {path}")
         if sudo:
-            command = ["sudo", "-S", "rm", path]
+            command = ["sudo", "-S", "rm", path.as_posix()]
             password = utils.get_sudo_pass(command)
             utils.run_process(command, input_=password)
         else:
@@ -417,7 +417,7 @@ class FS:
             return
         echo.info(f"Removing file: {path}")
         if sudo:
-            command = ["sudo", "-S", "rm", path]
+            command = ["sudo", "-S", "rm", path.as_posix()]
             password = utils.get_sudo_pass(command)
             utils.run_process(command, input_=password)
         else:

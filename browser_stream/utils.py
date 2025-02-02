@@ -117,4 +117,6 @@ class Config:
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
         with open(path, "w") as file:
-            json.dump(dataclasses.asdict(self), file, indent=4)
+            d = dataclasses.asdict(self)
+            d["media_dir"] = str(d["media_dir"]) if d["media_dir"] else None
+            json.dump(d, file, indent=4)
