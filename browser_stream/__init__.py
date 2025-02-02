@@ -192,17 +192,8 @@ class Nginx:
         ssl_certificate = Path(f"/etc/letsencrypt/live/{server_name}/fullchain.pem")
         ssl_certificate_key = Path(f"/etc/letsencrypt/live/{server_name}/privkey.pem")
 
-        if ssl:
-            if not server_name:
-                raise Exit("Server name is required for SSL configuration")
-            if not ssl_certificate.exists():
-                raise Exit(
-                    f"SSL certificate not found: {ssl_certificate}. Get SSL certificate using certbot"
-                )
-            if not ssl_certificate_key.exists():
-                raise Exit(
-                    f"SSL certificate key not found: {ssl_certificate_key}. Get SSL certificate using certbot"
-                )
+        if ssl and not server_name:
+            raise Exit("Server name is required for SSL configuration")
 
         ssl_config = (
             utils.dedent(f"""\n
