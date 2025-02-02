@@ -378,8 +378,7 @@ class FS:
         if sudo:
             command = ["sudo", "-S", "tee", path.as_posix()]
             password = utils.get_sudo_pass(command)
-            utils.run_process(command, input_=f"{password}\n")
-            utils.run_process(command, input_=f"{content}\n")
+            utils.run_process(command, input_=f"{password}\n{content}\n")
         with path.open("w") as f:
             f.write(content + "\n")
 

@@ -53,18 +53,19 @@ def run_process(
         stdin=subprocess.PIPE if input_ else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
+        text=True,
     )
     stdout_live = ""
     if live_output:
-        for line in iter(process.stdout.readline, b""):  # type: ignore
-            line = line.decode().strip()
+        for line in iter(process.stdout.readline, ""):  # type: ignore
+            line = line.strip()
             echo.print(line)
             stdout_live += line + "\n"
     try:
         stdout = process.communicate(
-            input=input_.encode() if input_ else None,
+            input=input_ if input_ else None,
             timeout=timeout,
-        )[0].decode()
+        )[0]
     except subprocess.TimeoutExpired:
         process.kill()
         echo.debug(f"Command `{command_str}` timed out after {timeout} seconds")
@@ -81,7 +82,7 @@ def run_process(
 
 @functools.cache
 def _get_sudo_password() -> str:
-    return prompt("Enter your sudo password", hide_input=True)
+    return prompt("Enter your sudo password", hide_input=True).strip()
 
 
 def get_sudo_pass(for_which_command: list[str]) -> str:
