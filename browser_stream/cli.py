@@ -54,6 +54,14 @@ def nginx_command(
     ipv6: bool = typer.Option(False, help="Enable IPv6 support in Nginx configuration"),
     ipv4: bool = typer.Option(False, help="Enable IPv4 support in Nginx configuration"),
     port: int = typer.Option(32000, help="Port to listen on"),
+    ssl: bool = typer.Option(
+        True,
+        help="Enable SSL support in Nginx configuration, default is True",
+        show_default=False,
+    ),
+    domain_name: str | None = typer.Option(
+        None, help="Domain name for SSL certificate", show_default=False
+    ),
     update_token: bool = typer.Option(
         False, help="Update X-Token in Nginx configuration"
     ),
@@ -101,6 +109,8 @@ def nginx_command(
         ipv6=ipv6,
         ipv4=ipv4,
         secret=x_token,
+        ssl=ssl,
+        server_name=domain_name,
     )
     if site_available.exists() and fs.read_file(site_available) == nginx_conf_data_new:
         echo.info("Nginx configuration is up-to-date")

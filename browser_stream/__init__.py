@@ -189,10 +189,25 @@ class Nginx:
         ssl: bool = False,
         server_name: str | None = None,
     ) -> str:
+        ssl_certificate = Path(f"/etc/letsencrypt/live/{server_name}/fullchain.pem")
+        ssl_certificate_key = Path(f"/etc/letsencrypt/live/{server_name}/privkey.pem")
+
+        if ssl:
+            if not server_name:
+                raise Exit("Server name is required for SSL configuration")
+            if not ssl_certificate.exists():
+                raise Exit(
+                    f"SSL certificate not found: {ssl_certificate}. Get SSL certificate using certbot"
+                )
+            if not ssl_certificate_key.exists():
+                raise Exit(
+                    f"SSL certificate key not found: {ssl_certificate_key}. Get SSL certificate using certbot"
+                )
+
         ssl_config = (
             utils.dedent(f"""\n
-                ssl_certificate /etc/letsencrypt/live/{server_name}/fullchain.pem;
-                ssl_certificate_key /etc/letsencrypt/live/{server_name}/privkey.pem;
+                ssl_certificate {ssl_certificate};
+                ssl_certificate_key {ssl_certificate_key};
                 ssl_protocols TLSv1.2 TLSv1.3;
                 ssl_ciphers HIGH:!aNULL:!MD5;
 
@@ -218,7 +233,7 @@ class Nginx:
             server {{
                 {listen_ipv4}
                 {listen_ipv6}
-                server_name {server_name};
+                server_name {server_name or "_"};
                 {ssl_config}
 
                 # Block root access
