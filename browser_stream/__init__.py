@@ -167,8 +167,13 @@ class Nginx:
 
     def _run(self, *args: tp.Any, exit_on_error: bool = True) -> str:
         self.exit_if_not_installed()
-        cmd = [self._cmd, *map(str, args)]
-        return utils.run_process(cmd, exit_on_error=exit_on_error).stdout
+        cmd = ["sudo", "-S", self._cmd, *map(str, args)]
+        password = utils.get_sudo_pass(cmd)
+        return utils.run_process(
+            cmd,
+            exit_on_error=exit_on_error,
+            input_=password,
+        ).stdout
 
     def test(self):
         echo.info("Testing nginx configuration")
