@@ -109,7 +109,7 @@ class Config:
         path = path.resolve()
         if not path.exists():
             return Config()
-        echo.debug(f"Loading configuration from {path}")
+        echo.print(f"Loading configuration from {path}")
         with open(path, "r") as file:
             data = json.load(file)
         return Config(**data)
@@ -119,6 +119,7 @@ class Config:
         echo.debug(f"Saving configuration to {path}")
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
+        echo.debug(f"Saving configuration to {path}")
         with open(path, "w") as file:
             d = dataclasses.asdict(self)
             d["media_dir"] = str(d["media_dir"]) if d["media_dir"] else None
