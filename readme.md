@@ -44,6 +44,9 @@ This tool is designed to work **with original quality** (without server transcod
     # Create a virtual environment and install dependencies
     python -m venv venv && source venv/bin/activate
     pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
+    # or
+    git clone git@github.com:solesensei/browser_stream.git
+    pip install browser_stream/
     ```
 
     </details>
