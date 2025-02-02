@@ -92,5 +92,7 @@ class Config:
 
     def save(self, path: Path = Path(config.CONFIG_PATH)) -> None:
         echo.debug(f"Saving configuration to {path}")
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True)
         with open(path, "w") as file:
             json.dump(dataclasses.asdict(self), file, indent=4)

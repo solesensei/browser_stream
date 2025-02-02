@@ -22,14 +22,9 @@ This tool is designed to work **with original quality** (without server transcod
 ## Prerequisites
 
 1. Python 3.10 or higher (use [pyenv](https://github.com/pyenv/pyenv) if needed).
-2. Nginx (if using Nginx) or configured Plex Media Server (if using Plex)
-3. FFmpeg (for media encoding):
-    ```bash
-    sudo apt update && sudo apt install ffmpeg -y
-    ```
-4. Python packages:
+2. Install the tool
 
-   <details><summary>Using pipx</summary>
+   <details><summary>Install using pipx</summary>
 
    ```bash
    pipx install git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
@@ -37,7 +32,7 @@ This tool is designed to work **with original quality** (without server transcod
 
    </details>
 
-   <details><summary>Using pip</summary>
+   <details><summary>Install using venv+pip</summary>
 
 
     ```bash
@@ -50,6 +45,12 @@ This tool is designed to work **with original quality** (without server transcod
     ```
 
     </details>
+3. Nginx (if using Nginx) or configured Plex Media Server (if using Plex)
+4. FFmpeg (for media encoding):
+    ```bash
+    sudo apt update && sudo apt install ffmpeg -y
+    ```
+
 
 5. Static IPv4 or IPv6 address for your server.
 
