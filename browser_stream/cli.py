@@ -78,8 +78,8 @@ def nginx_command(
     site_enabled = Path("/etc/nginx/sites-enabled") / site_conf_name
 
     if reset:
-        fs.remove_file(site_available)
-        fs.remove_file(site_enabled)
+        fs.remove_file(site_available, sudo=True)
+        fs.remove_file(site_enabled, sudo=True)
         echo.info("Nginx configuration reset complete")
         return
 
@@ -105,7 +105,7 @@ def nginx_command(
     if site_available.exists() and fs.read_file(site_available) == nginx_conf_data_new:
         echo.info("Nginx configuration is up-to-date")
         return
-    fs.write_file(site_available, nginx_conf_data_new)
+    fs.write_file(site_available, nginx_conf_data_new, sudo=True)
     conf.media_dir = media_dir
     conf.nginx_port = port
     conf.ipv4 = ipv4
@@ -116,7 +116,7 @@ def nginx_command(
     nginx.reload()
 
     if not site_enabled.exists():
-        fs.create_symlink(site_enabled, site_available)
+        fs.create_symlink(site_enabled, site_available, sudo=True)
     echo.info("Nginx configuration generated successfully")
 
 

@@ -24,10 +24,12 @@ class Exit(Exception):
         self.message = message
         self.code = code
 
+
 @dataclasses.dataclass
 class StreamMedia:
     path: Path
     subtitle_path: Path | None = None
+
 
 class PlexAPI:
     """Wrapper around Plex API"""
@@ -353,46 +355,71 @@ class FS:
         return path.suffix.lstrip(".")
 
     @staticmethod
-    def create_dir(path: Path):
+    def create_dir(path: Path, sudo: bool = False):
         if path.exists():
             return
         echo.info(f"Creating directory: {path}")
-        path.mkdir(parents=True)
+        if sudo:
+            command = ["sudo", "-S", "mkdir", "-p", path.as_posix()]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
+        else:
+            path.mkdir(parents=True)
 
     @staticmethod
-    def write_file(path: Path, content: str):
+    def write_file(path: Path, content: str, sudo: bool = False):
         echo.info(f"Creating file: {path}")
+        if sudo:
+            command = ["sudo", "-S", "tee", path.as_posix()]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=f"{password}\n{content}")
         with path.open("w") as f:
             f.write(content + "\n")
 
     @staticmethod
-    def create_symlink(src: Path, dst: Path):
+    def create_symlink(src: Path, dst: Path, sudo: bool = False):
         if src.exists() and not src.is_symlink():
             raise Exit(f"Sorce path is not a symlink: {src}")
+        if dst.exists():
+            return
         echo.info(f"Creating symlink: {src} -> {dst}")
-        src.symlink_to(dst)
+        if sudo:
+            command = ["sudo", "-S", "ln", "-sf", src, dst]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
+        else:
+            src.symlink_to(dst)
 
     @staticmethod
-    def remove_symlink(path: Path):
+    def remove_symlink(path: Path, sudo: bool = False):
         if not path.exists():
             return
         if not path.is_symlink():
             raise Exit(f"Path is not a symlink: {path}")
         echo.info(f"Removing symlink: {path}")
-        path.unlink()
+        if sudo:
+            command = ["sudo", "-S", "rm", path]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
+        else:
+            path.unlink()
 
     @staticmethod
-    def remove_file(path: Path):
+    def remove_file(path: Path, sudo: bool = False):
         if not path.exists():
             return
         echo.info(f"Removing file: {path}")
-        path.unlink()
+        if sudo:
+            command = ["sudo", "-S", "rm", path]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
+        else:
+            path.unlink()
 
     @staticmethod
     def read_file(path: Path) -> str:
         with path.open() as f:
             return f.read()
-
 
 
 def build_stream_url_nginx(
@@ -492,7 +519,9 @@ def stream_nginx(
         subtitle_file = stream_media.subtitle_path
 
     if subtitle_file:
-        echo.info(f"Create HTML file with video and subtitles: {media_file.with_suffix('.html')}")
+        echo.info(
+            f"Create HTML file with video and subtitles: {media_file.with_suffix('.html')}"
+        )
         html_data = html.get_video_html_with_subtitles(
             video_url=build_stream_url_nginx(media_file),
             subtitles_url=build_stream_url_nginx(subtitle_file),
@@ -501,8 +530,10 @@ def stream_nginx(
         media_file = media_file.with_suffix(".html")
         fs.write_file(media_file, html_data)
 
-    echo.info('Preparation done')
-    echo.info(f"Stream media file using Nginx server: {build_stream_url_nginx(media_file)}")
+    echo.info("Preparation done")
+    echo.info(
+        f"Stream media file using Nginx server: {build_stream_url_nginx(media_file)}"
+    )
 
 
 def stream_plex(
@@ -511,7 +542,6 @@ def stream_plex(
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
     do_not_convert: bool = False,
-    
 ):
     """
     Check file exists on Plex server, convert file and prints the URL to stream media file

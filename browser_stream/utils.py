@@ -1,6 +1,7 @@
 import json
 import typer
 import typing as tp
+import functools
 import textwrap
 from pathlib import Path
 from browser_stream.echo import echo
@@ -10,8 +11,8 @@ import subprocess
 import dataclasses
 
 
-def prompt(message: str) -> str:
-    return typer.prompt(message)
+def prompt(message: str, **kwargs) -> str:
+    return typer.prompt(message, **kwargs)
 
 
 def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
@@ -36,6 +37,7 @@ def generate_token() -> str:
 
 def run_process(
     command: list[str],
+    input_: str | None = None,
     exit_on_error: bool = True,
     live_output: bool = False,
     timeout: int | None = None,
@@ -44,17 +46,21 @@ def run_process(
     echo.debug(f"Running command: {command_str}")
     process = subprocess.Popen(
         command,
+        stdin=subprocess.PIPE if input_ else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
     stdout_live = ""
     if live_output:
         for line in iter(process.stdout.readline, b""):  # type: ignore
-            line = line.decode("utf-8").strip()
+            line = line.decode().strip()
             echo.print(line)
             stdout_live += line + "\n"
     try:
-        stdout = process.communicate(timeout=timeout)[0].decode()
+        stdout = process.communicate(
+            input=input_.encode() if input_ else None,
+            timeout=timeout,
+        )[0].decode()
     except subprocess.TimeoutExpired:
         process.kill()
         echo.debug(f"Command `{command_str}` timed out after {timeout} seconds")
@@ -67,6 +73,17 @@ def run_process(
         returncode=process.returncode,
         stdout=stdout_live if live_output else stdout,
     )
+
+
+@functools.cache
+def _get_sudo_password() -> str:
+    return prompt("Enter your sudo password", hide_input=True)
+
+
+def get_sudo_pass(for_which_command: list[str]) -> str:
+    echo.printc("This command requires sudo access", color="yellow")
+    echo.print(typer.style("Command: ", bold=True) + " ".join(for_which_command))
+    return _get_sudo_password()
 
 
 @dataclasses.dataclass
