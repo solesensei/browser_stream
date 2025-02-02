@@ -106,13 +106,16 @@ class Config:
 
     @classmethod
     def load(cls, path: Path = Path(config.CONFIG_PATH)) -> "Config":
+        path = path.resolve()
         if not path.exists():
             return Config()
+        echo.debug(f"Loading configuration from {path}")
         with open(path, "r") as file:
             data = json.load(file)
         return Config(**data)
 
     def save(self, path: Path = Path(config.CONFIG_PATH)) -> None:
+        path = path.resolve()
         echo.debug(f"Saving configuration to {path}")
         if not path.parent.exists():
             path.parent.mkdir(parents=True)
