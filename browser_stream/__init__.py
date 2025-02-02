@@ -366,8 +366,9 @@ class FS:
             return
         echo.info(f"Creating directory: {path}")
         if sudo:
-            command = ["mkdir", "-p", path.as_posix()]
-            utils.run_process(command, sudo=True)
+            command = ["sudo", "-S", "mkdir", "-p", path.as_posix()]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
         else:
             path.mkdir(parents=True)
 
@@ -375,8 +376,9 @@ class FS:
     def write_file(path: Path, content: str, sudo: bool = False):
         echo.info(f"Creating file: {path}")
         if sudo:
-            command = ["tee", path.as_posix()]
-            utils.run_process(command, input_=f"{content}", sudo=True)
+            command = ["sudo", "-S", "tee", path.as_posix()]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=f"{password}\n{content}\n")
         with path.open("w") as f:
             f.write(content + "\n")
 
@@ -388,8 +390,9 @@ class FS:
             return
         echo.info(f"Creating symlink: {src} -> {dst}")
         if sudo:
-            command = ["ln", "-sf", src.as_posix(), dst.as_posix()]
-            utils.run_process(command, sudo=True)
+            command = ["sudo", "-S", "ln", "-sf", src, dst]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
         else:
             src.symlink_to(dst)
 
@@ -401,8 +404,9 @@ class FS:
             raise Exit(f"Path is not a symlink: {path}")
         echo.info(f"Removing symlink: {path}")
         if sudo:
-            command = ["rm", path.as_posix()]
-            utils.run_process(command, sudo=True)
+            command = ["sudo", "-S", "rm", path]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
         else:
             path.unlink()
 
@@ -412,8 +416,9 @@ class FS:
             return
         echo.info(f"Removing file: {path}")
         if sudo:
-            command = ["rm", path.as_posix()]
-            utils.run_process(command, sudo=True)
+            command = ["sudo", "-S", "rm", path]
+            password = utils.get_sudo_pass(command)
+            utils.run_process(command, input_=password)
         else:
             path.unlink()
 

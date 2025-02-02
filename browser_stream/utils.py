@@ -43,21 +43,17 @@ def run_process(
     exit_on_error: bool = True,
     live_output: bool = False,
     timeout: int | None = None,
-    sudo: bool = False,
 ) -> subprocess.CompletedProcess:
-    if sudo:
-        command = ["sudo"] + command
     command_str = " ".join(command)
     if config.PROMPT_COMMANDS and not confirm(f"Run command: {command_str}"):
         raise ValueError("Aborted")
     echo.debug(f"Running command: {command_str}")
     process = subprocess.Popen(
-        command_str if sudo else command,
-        stdin=subprocess.PIPE if input_ or sudo else None,
+        command,
+        stdin=subprocess.PIPE if input_ else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        shell=sudo,
     )
     stdout_live = ""
     if live_output:
@@ -67,7 +63,7 @@ def run_process(
             stdout_live += line + "\n"
     try:
         stdout = process.communicate(
-            input=input_,
+            input=input_ if input_ else None,
             timeout=timeout,
         )[0]
     except subprocess.TimeoutExpired:
