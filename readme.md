@@ -67,9 +67,9 @@ This tool is designed to work **with original quality** (without server transcod
 # Install Nginx
 sudo apt update && sudo apt install nginx -y
 # Configure Nginx over HTTP (no SSL)
-python main.py nginx --media-dir /path/to/media --ipv6 --port 32000 
+browser-streamer nginx --media-dir /path/to/media --ipv6 --port 32000 
 # Get stream URL
-python main.py stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-nginx
+browser-streamer stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-nginx
 ```
 
 ### Plex
@@ -81,11 +81,11 @@ Setup [Plex Media Server](https://plex.tv)
 
 ```bash
 # Configure Plex
-python main.py plex --media-dir /path/to/media --x-token your-plex-token --server-id your-plex-server-id
+browser-streamer plex --media-dir /path/to/media --x-token your-plex-token --server-id your-plex-server-id
 # (alternative) Configure Plex with download url (can be gotten from plex web player)
-python main.py plex --media-dir /path/to/media --download-url https://ip-address.plex.direct:32400/library/parts/your-part-id/file.mp4?X-Plex-Token=your-plex-token
+browser-streamer plex --media-dir /path/to/media --download-url https://ip-address.plex.direct:32400/library/parts/your-part-id/file.mp4?X-Plex-Token=your-plex-token
 # Get stream URL
-python main.py stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-plex
+browser-streamer stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-plex
 ```
 
 ## Nginx HTTPS with Router Domain or Dynamic DNS
@@ -102,7 +102,7 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
     ```
 3. Configure Nginx to use the certificate:
     ```bash
-    python main.py nginx --media-dir /path/to/media --ipv6 --port 32000 --domain your-domain.com --ssl
+    browser-streamer nginx --media-dir /path/to/media --ipv6 --port 32000 --domain your-domain.com --ssl
     ```
 4. Test the configuration and start Nginx:
     ```bash
