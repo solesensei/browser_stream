@@ -109,7 +109,7 @@ class Config:
         path = path.resolve()
         if not path.exists():
             return Config()
-        echo.print(f"Loading configuration from {path}")
+        echo.debug(f"Loading configuration from {path}")
         with open(path, "r") as file:
             data = json.load(file)
         return Config(**data)

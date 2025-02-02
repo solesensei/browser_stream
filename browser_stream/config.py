@@ -20,4 +20,4 @@ PROMPT_COMMANDS = _env_flag("PROMPT_COMMANDS")
 
 
 # Constants
-CONFIG_PATH = "~/.browser_stream/config.json"
+CONFIG_PATH = os.path.expanduser("~/.browser_stream/config.json")
