@@ -58,16 +58,22 @@ def nginx_command(
         exists=True,
         prompt=True,
     ),
-    ipv6: bool = typer.Option(False, help="Enable IPv6 support in Nginx configuration"),
-    ipv4: bool = typer.Option(False, help="Enable IPv4 support in Nginx configuration"),
-    port: int = typer.Option(32000, help="Port to listen on"),
+    ipv6: bool = typer.Option(
+        conf.ipv6, help="Enable IPv6 support in Nginx configuration"
+    ),
+    ipv4: bool = typer.Option(
+        conf.ipv4, help="Enable IPv4 support in Nginx configuration"
+    ),
+    port: int = typer.Option(conf.nginx_port or 32000, help="Port to listen on"),
     ssl: bool = typer.Option(
         True,
         help="Enable SSL support in Nginx configuration, default is True",
         show_default=False,
     ),
     domain_name: str | None = typer.Option(
-        None, help="Domain name for SSL certificate", show_default=False
+        conf.nginx_domain_name,
+        help="Domain name for SSL certificate",
+        show_default=False,
     ),
     update_token: bool = typer.Option(
         False, help="Update X-Token in Nginx configuration"
@@ -77,7 +83,7 @@ def nginx_command(
         help="Name of the Nginx site configuration file",
     ),
     allow_index: bool = typer.Option(
-        False, help="Allow directory listing in Nginx configuration"
+        conf.nginx_allow_index, help="Allow directory listing in Nginx configuration"
     ),
     reset: bool = typer.Option(
         False, help="Remove Nginx configuration files and symlinks related to site"

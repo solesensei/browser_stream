@@ -115,6 +115,8 @@ class Config:
     plex_server_id: str | None = None
     nginx_secret: str | None = None
     nginx_conf_name: str | None = None
+    nginx_allow_index: bool = False
+    nginx_domain_name: str | None = None
 
     @classmethod
     def load(cls, path: Path = Path(config.CONFIG_PATH)) -> "Config":
