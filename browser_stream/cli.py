@@ -66,7 +66,7 @@ def nginx_command(
         False, help="Update X-Token in Nginx configuration"
     ),
     site_conf_name: str = typer.Option(
-        conf.nginx_conf_name or "mp4_stream",
+        conf.nginx_conf_name or "browser_stream",
         help="Name of the Nginx site configuration file",
     ),
     allow_index: bool = typer.Option(
@@ -106,7 +106,7 @@ def nginx_command(
     else:
         x_token = conf.nginx_secret
 
-    nginx_conf_data_new = nginx.get_mp4_stream_config(
+    nginx_conf_data_new = nginx.get_browser_stream_config(
         media_path=media_dir,
         port=port,
         ipv6=ipv6,

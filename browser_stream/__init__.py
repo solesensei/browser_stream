@@ -166,7 +166,7 @@ class Nginx:
     def _run(self, *args: tp.Any, exit_on_error: bool = True) -> str:
         self.exit_if_not_installed()
         cmd = ["sudo", "-S", self._cmd, *map(str, args)]
-        password = utils.get_sudo_pass(cmd)
+        password = utils.get_sudo_pass(cmd, what_happens="Nginx command would be run")
         return utils.run_process(
             cmd,
             exit_on_error=exit_on_error,
@@ -181,7 +181,7 @@ class Nginx:
         echo.info("Reloading nginx configuration")
         return self._run("-s", "reload")
 
-    def get_mp4_stream_config(
+    def get_browser_stream_config(
         self,
         media_path: Path,
         secret: str,
