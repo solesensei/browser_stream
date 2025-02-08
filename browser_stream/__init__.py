@@ -406,7 +406,7 @@ class FS:
             raise Exit(f"Destination path does not exist: {dst}")
         echo.info(f"Creating symlink: {src} -> {dst}")
         if sudo:
-            command = ["sudo", "-S", "ln", "-sf", src.as_posix(), dst.as_posix()]
+            command = ["sudo", "-S", "ln", "-sf", dst.as_posix(), src.as_posix()]
             password = utils.get_sudo_pass(
                 command, what_happens="Symlink would be created"
             )
