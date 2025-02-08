@@ -50,13 +50,12 @@ def config_command():
 
 @app.command("nginx")
 def nginx_command(
-    media_dir: Path = typer.Option(
+    media_dir: Path | None = typer.Option(
         conf.media_dir,
         help="Path to media directory",
         dir_okay=True,
         file_okay=False,
         exists=True,
-        prompt=True,
     ),
     ipv6: bool = typer.Option(
         conf.ipv6, help="Enable IPv6 support in Nginx configuration"
@@ -90,6 +89,10 @@ def nginx_command(
     ),
 ):
     """Nginx configuration"""
+    media_dir = (
+        media_dir or utils.prompt_path("Enter path to media directory")
+    ).resolve()
+
     fs = FS()
     nginx = Nginx()
     nginx.exit_if_not_installed()

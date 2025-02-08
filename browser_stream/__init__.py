@@ -535,6 +535,11 @@ def stream_nginx(
             param_hint="media-file",
         )
 
+    if conf.nginx_allow_index:
+        echo.warning(
+            "Directory listing is enabled in Nginx configuration (allow_index=true). That means anyone can navigate through your media files"
+        )
+
     if not do_not_convert:
         stream_media = prepare_file_to_stream(
             media_file=media_file,
