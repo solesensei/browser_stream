@@ -288,10 +288,7 @@ class Ffmpeg:
             "-i",
             path.resolve(),
             "-hide_banner",
-            "-f",
-            "null",
-            "-",
-            live_output=True,
+            exit_on_error=False,
         )
 
     def extract_subtitle(self, media_file: Path, subtitle_lang: str) -> Path:
