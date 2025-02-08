@@ -41,6 +41,13 @@ app = typer.Typer(
 )
 
 
+@app.command("config")
+def config_command():
+    """Show configuration"""
+    echo.info(f"Config path: {config.CONFIG_PATH}")
+    echo.print_json(conf.to_dict())
+
+
 @app.command("nginx")
 def nginx_command(
     media_dir: Path = typer.Option(

@@ -136,3 +136,6 @@ class Config:
             d = dataclasses.asdict(self)
             d["media_dir"] = str(d["media_dir"]) if d["media_dir"] else None
             json.dump(d, file, indent=4)
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
