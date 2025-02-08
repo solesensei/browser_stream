@@ -142,6 +142,8 @@ def nginx_command(
     conf.ipv4 = ipv4
     conf.ipv6 = ipv6
     conf.nginx_secret = x_token
+    conf.nginx_allow_index = allow_index
+    conf.nginx_domain_name = domain_name
     conf.save()
     nginx.test()
     nginx.reload()
