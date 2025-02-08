@@ -283,21 +283,6 @@ class Ffmpeg:
         cmd = [self._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
-    def get_streams(self, path: Path) -> str:
-        return self._run(
-            "-i",
-            path.resolve(),
-            "-hide_banner",
-            "-map",
-            "0",
-            "-c",
-            "copy",
-            "-f",
-            "null",
-            "-",
-            live_output=True,
-        )
-
     def get_media_info(self, path: Path) -> str:
         return self._run(
             "-i",

@@ -169,8 +169,6 @@ def ffmpeg_command(
     ),
 ):
     ffmeg = Ffmpeg()
-    echo.info("Streams:")
-    echo.print(ffmeg.get_streams(media_file))
     echo.info("Media info:")
     echo.print(ffmeg.get_media_info(media_file))
 
