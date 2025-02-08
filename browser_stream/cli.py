@@ -51,7 +51,7 @@ def config_command():
 @app.command("nginx")
 def nginx_command(
     media_dir: Path = typer.Option(
-        ...,
+        conf.media_dir,
         help="Path to media directory",
         dir_okay=True,
         file_okay=False,
