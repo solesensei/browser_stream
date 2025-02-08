@@ -295,6 +295,7 @@ class Ffmpeg:
             "-f",
             "null",
             "-",
+            live_output=True,
         )
 
     def get_media_info(self, path: Path) -> str:
@@ -305,6 +306,7 @@ class Ffmpeg:
             "-f",
             "null",
             "-",
+            live_output=True,
         )
 
     def extract_subtitle(self, media_file: Path, subtitle_lang: str) -> Path:
