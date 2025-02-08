@@ -85,9 +85,10 @@ def _get_sudo_password() -> str:
     return prompt("Enter your sudo password", hide_input=True).strip()
 
 
-def get_sudo_pass(for_which_command: list[str]) -> str:
+def get_sudo_pass(for_which_command: list[str], what_happens: str) -> str:
     echo.printc("This command requires sudo access", color="yellow")
     echo.print(typer.style("Command: ", bold=True) + " ".join(for_which_command))
+    echo.print(typer.style("What happens: ", bold=True) + what_happens)
     return _get_sudo_password()
 
 

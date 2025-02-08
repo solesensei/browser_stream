@@ -1,14 +1,12 @@
 #!/usr/local/bin/python
 import httpx
-import json
-import os
 from pathlib import Path
 import shutil
 import typing as tp
-import subprocess
 import functools
 import urllib.parse
 import dataclasses
+import tempfile
 
 import typer
 
@@ -201,7 +199,7 @@ class Nginx:
             raise Exit("Server name is required for SSL configuration")
 
         ssl_config = (
-            utils.dedent(f"""\n
+            utils.dedent(f"""
                 ssl_certificate {ssl_certificate};
                 ssl_certificate_key {ssl_certificate_key};
                 ssl_protocols TLSv1.2 TLSv1.3;
@@ -230,6 +228,7 @@ class Nginx:
                 {listen_ipv4}
                 {listen_ipv6}
                 server_name {server_name or "_"};
+
                 {ssl_config}
 
                 # Block root access
@@ -350,7 +349,7 @@ class HTML:
         language = language.capitalize()
         srclang = language.lower()[0:2]
         return utils.dedent(f"""
-            <video controls>
+            <video controls style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; object-fit: cover;">
                 <source src="{video_url}" type="video/mp4">
                 <track src="{subtitles_url}" kind="subtitles" srclang="{srclang}" label="{language}">
                 Your browser does not support the video tag.
@@ -372,7 +371,9 @@ class FS:
         echo.info(f"Creating directory: {path}")
         if sudo:
             command = ["sudo", "-S", "mkdir", "-p", path.as_posix()]
-            password = utils.get_sudo_pass(command)
+            password = utils.get_sudo_pass(
+                command, what_happens="Directory would be created"
+            )
             utils.run_process(command, input_=password)
         else:
             path.mkdir(parents=True)
@@ -381,9 +382,13 @@ class FS:
     def write_file(path: Path, content: str, sudo: bool = False):
         echo.info(f"Creating file: {path}")
         if sudo:
-            command = ["sudo", "-S", "tee", path.as_posix()]
-            password = utils.get_sudo_pass(command)
-            utils.run_process(command, input_=f"{password}\n{content}\n")
+            with tempfile.NamedTemporaryFile("w", delete=False) as tmp:
+                tmp.write(content + "\n")
+            command = ["sudo", "-S", "mv", tmp.name, path.as_posix()]
+            password = utils.get_sudo_pass(
+                command, what_happens="File would be created"
+            )
+            utils.run_process(command, input_=password)
         else:
             with path.open("w") as f:
                 f.write(content + "\n")
@@ -397,7 +402,9 @@ class FS:
         echo.info(f"Creating symlink: {src} -> {dst}")
         if sudo:
             command = ["sudo", "-S", "ln", "-sf", src.as_posix(), dst.as_posix()]
-            password = utils.get_sudo_pass(command)
+            password = utils.get_sudo_pass(
+                command, what_happens="Symlink would be created"
+            )
             utils.run_process(command, input_=password)
         else:
             src.symlink_to(dst)
@@ -411,7 +418,9 @@ class FS:
         echo.info(f"Removing symlink: {path}")
         if sudo:
             command = ["sudo", "-S", "rm", path.as_posix()]
-            password = utils.get_sudo_pass(command)
+            password = utils.get_sudo_pass(
+                command, what_happens="Symlink would be removed"
+            )
             utils.run_process(command, input_=password)
         else:
             path.unlink()
@@ -423,7 +432,9 @@ class FS:
         echo.info(f"Removing file: {path}")
         if sudo:
             command = ["sudo", "-S", "rm", path.as_posix()]
-            password = utils.get_sudo_pass(command)
+            password = utils.get_sudo_pass(
+                command, what_happens="File would be removed"
+            )
             utils.run_process(command, input_=password)
         else:
             path.unlink()
