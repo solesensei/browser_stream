@@ -33,6 +33,12 @@ def dedent(text: str) -> str:
     return textwrap.dedent(text).strip()
 
 
+def indent(text: str, spaces: int = 4, dedent: bool = True) -> str:
+    if dedent:
+        text = textwrap.dedent(text)
+    return textwrap.indent(text, " " * spaces)
+
+
 def generate_token() -> str:
     return secrets.token_hex(16)
 

@@ -199,7 +199,8 @@ class Nginx:
             raise Exit("Server name is required for SSL configuration")
 
         ssl_config = (
-            utils.dedent(f"""
+            utils.indent(
+                f"""
                 ssl_certificate {ssl_certificate};
                 ssl_certificate_key {ssl_certificate_key};
                 ssl_protocols TLSv1.2 TLSv1.3;
@@ -209,7 +210,9 @@ class Nginx:
                 if ($scheme != "https") {{
                     return 301 https://$host$request_uri;
                 }}
-            """)
+                """,
+                spaces=4,
+            )
             if ssl
             else ""
         )
