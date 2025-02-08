@@ -156,6 +156,25 @@ def nginx_command(
     echo.info("Nginx configuration generated successfully")
 
 
+@app.command("ffmpeg")
+def ffmpeg_command(
+    media_file: Path = typer.Option(
+        ...,
+        help="Path to media file",
+        dir_okay=False,
+        file_okay=True,
+        exists=True,
+        prompt=True,
+        show_default=False,
+    ),
+):
+    ffmeg = Ffmpeg()
+    echo.info("Streams:")
+    echo.print(ffmeg.get_streams(media_file))
+    echo.info("Media info:")
+    echo.print(ffmeg.get_media_info(media_file))
+
+
 @app.command("plex")
 def plex_command(
     x_token: tp.Annotated[str, typer.Option(help="X-Plex-Token")],

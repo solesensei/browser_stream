@@ -283,12 +283,32 @@ class Ffmpeg:
         cmd = [self._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
-    def get_streams(self, url: str):
+    def get_streams(self, path: Path) -> str:
         return self._run(
-            "-i", url, "-hide_banner", "-map", "0", "-c", "copy", "-f", "null", "-"
+            "-i",
+            path.resolve(),
+            "-hide_banner",
+            "-map",
+            "0",
+            "-c",
+            "copy",
+            "-f",
+            "null",
+            "-",
+        )
+
+    def get_media_info(self, path: Path) -> str:
+        return self._run(
+            "-i",
+            path.resolve(),
+            "-hide_banner",
+            "-f",
+            "null",
+            "-",
         )
 
     def extract_subtitle(self, media_file: Path, subtitle_lang: str) -> Path:
+        echo.info(f"Extracting subtitle: {subtitle_lang} from {media_file}")
         subtitle_file = media_file.with_suffix(f".{subtitle_lang}.vtt")
         self._run(
             "-i",
@@ -321,6 +341,7 @@ class Ffmpeg:
             subtitle_lang: Subtitle language
             burn_subtitles: Burn subtitles into video (default: False)
         """
+        echo.info(f"Converting media file: {media_file} to MP4 format")
         args = [
             "-i",
             media_file,
