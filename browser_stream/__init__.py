@@ -402,8 +402,8 @@ class FS:
     def create_symlink(src: Path, dst: Path, sudo: bool = False):
         if src.exists() and not src.is_symlink():
             raise Exit(f"Sorce path is not a symlink: {src}")
-        if dst.exists():
-            return
+        if not dst.exists():
+            raise Exit(f"Destination path does not exist: {dst}")
         echo.info(f"Creating symlink: {src} -> {dst}")
         if sudo:
             command = ["sudo", "-S", "ln", "-sf", src.as_posix(), dst.as_posix()]
