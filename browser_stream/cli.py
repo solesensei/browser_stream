@@ -123,7 +123,10 @@ def nginx_command(
         allow_index=allow_index,
         server_name=domain_name,
     )
-    if site_available.exists() and fs.read_file(site_available) == nginx_conf_data_new:
+    if (
+        site_available.exists()
+        and fs.read_file(site_available).strip() == nginx_conf_data_new
+    ):
         echo.info("Nginx configuration is up-to-date")
         return
     echo.info("Generating Nginx configuration")
