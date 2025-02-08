@@ -163,10 +163,10 @@ class Nginx:
         if shutil.which(self._cmd) is None:
             raise Exit(f"'{self._cmd}' is not found in PATH", code=2)
 
-    def _run(self, *args: tp.Any, exit_on_error: bool = True) -> str:
+    def _run(self, *args: tp.Any, what_happens: str, exit_on_error: bool = True) -> str:
         self.exit_if_not_installed()
         cmd = ["sudo", "-S", self._cmd, *map(str, args)]
-        password = utils.get_sudo_pass(cmd, what_happens="Nginx command would be run")
+        password = utils.get_sudo_pass(cmd, what_happens=what_happens)
         return utils.run_process(
             cmd,
             exit_on_error=exit_on_error,
@@ -175,11 +175,13 @@ class Nginx:
 
     def test(self):
         echo.info("Testing nginx configuration")
-        return self._run("-t")
+        return self._run("-t", what_happens="Nginx configuration would be tested")
 
     def reload(self):
         echo.info("Reloading nginx configuration")
-        return self._run("-s", "reload")
+        return self._run(
+            "-s", "reload", what_happens="Nginx configuration would be reloaded"
+        )
 
     def get_browser_stream_config(
         self,
