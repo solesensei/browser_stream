@@ -211,7 +211,7 @@ class Nginx:
                     return 301 https://$host$request_uri;
                 }}
                 """,
-                spaces=4,
+                spaces=16,
             )
             if ssl
             else ""
@@ -232,7 +232,7 @@ class Nginx:
                 {listen_ipv6}
                 server_name {server_name or "_"};
 
-                {ssl_config}
+{ssl_config}
 
                 # Block root access
                 location = / {{

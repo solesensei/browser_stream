@@ -33,9 +33,9 @@ def dedent(text: str) -> str:
     return textwrap.dedent(text).strip()
 
 
-def indent(text: str, spaces: int = 4, dedent: bool = True) -> str:
-    if dedent:
-        text = textwrap.dedent(text)
+def indent(text: str, spaces: int = 4, dedent_: bool = True) -> str:
+    if dedent_:
+        text = dedent(text)
     return textwrap.indent(text, " " * spaces)
 
 
