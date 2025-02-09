@@ -333,7 +333,7 @@ class FfmpegMediaInfo:
                         type=type_.lower(),  # type: ignore
                         codec=codec,
                         language=lang,
-                        encoding_info=encoding_info,
+                        encoding_info=encoding_info.strip(" ,"),
                     )
                 else:
                     echo.warning(f"Cannot parse stream info from line: {line}")
