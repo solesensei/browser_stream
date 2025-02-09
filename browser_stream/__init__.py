@@ -744,11 +744,16 @@ def select_audio(
         message="Select audio stream",
     )
     selected_audio = select_audios_from[index]
-    if selected_audio.codec not in config.BROWSER_AUDIO_CODECS and utils.confirm(
-        f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
-    ):
-        audio_file = ffmpeg.convert_audio_to_aac(media_file_info.filename)
-        return audio_file
+    if selected_audio.codec not in config.BROWSER_AUDIO_CODECS:
+        audio_aac = media_file.with_suffix(".aac")
+        if audio_aac.exists() and utils.confirm(
+            f"AAC audio file already exists: {audio_aac}. Do you want to use it?"
+        ):
+            return audio_aac
+        if utils.confirm(
+            f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
+        ):
+            return ffmpeg.convert_audio_to_aac(media_file_info.filename)
     return selected_audio
 
 
