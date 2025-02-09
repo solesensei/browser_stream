@@ -536,7 +536,6 @@ class Ffmpeg:
         echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
         output_file = subtitle_file.with_suffix(".vtt")
         self._run(
-            "ffmpeg",
             "-i",
             subtitle_file,
             "-c:s",
@@ -747,7 +746,7 @@ def select_audio(
     if selected_audio.codec not in config.BROWSER_AUDIO_CODECS:
         audio_aac = media_file.with_suffix(".aac")
         if audio_aac.exists() and utils.confirm(
-            f"AAC audio file already exists: {audio_aac}. Do you want to use it?"
+            f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
         ):
             return audio_aac
         if utils.confirm(
