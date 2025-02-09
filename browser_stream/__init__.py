@@ -356,7 +356,10 @@ class FfmpegMediaInfo:
         )
 
     def to_dict(self) -> dict[str, tp.Any]:
-        return dataclasses.asdict(self)
+        d = dataclasses.asdict(self)
+        d["duration"] = str(d["duration"])
+        d["filename"] = d["filename"].as_posix()
+        return d
 
 
 class Ffmpeg:
