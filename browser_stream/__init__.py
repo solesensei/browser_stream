@@ -323,6 +323,7 @@ class FfmpegMediaInfo:
         streams: list[FfmpegStream] = []
 
         for i, line in enumerate(lines):
+            line = line.strip()
             if "from" in line:
                 match = re.search(r"from '(.+)'", line)
                 if match:
@@ -335,7 +336,7 @@ class FfmpegMediaInfo:
                     duration = utils.parse_duration(match.group(1))
                 else:
                     echo.warning(f"Cannot parse duration from line: {line}")
-            if "title" in line and last_stream_info is None:
+            if line.startswith("title") and last_stream_info is None:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
                     title = match.group(1)
@@ -365,7 +366,7 @@ class FfmpegMediaInfo:
                     )
                 else:
                     echo.warning(f"Cannot parse stream info from line: {line}")
-            if "title" in line and last_stream_info:
+            if line.startswith("title") and last_stream_info:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
                     last_stream_info.title = match.group(1)
