@@ -299,7 +299,9 @@ class FfmpegMediaInfo:
 
     @property
     def video(self) -> FfmpegStream:
-        return next((s for s in self.streams if s.type == "video"))
+        video_ = next((s for s in self.streams if s.type == "video"), None)
+        assert video_ is not None, "Video stream not found"
+        return video_
 
     @property
     def audios(self) -> list[FfmpegStream]:
@@ -348,7 +350,10 @@ class FfmpegMediaInfo:
             if "Stream" in line:
                 if last_stream_info:
                     streams.append(last_stream_info)
-                match = re.search(r"Stream #\d+:(\d+)\((\w+)\): (\w+): (\w+)(.+)", line)
+                match = re.search(
+                    r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(?: \((.+)\))?",
+                    line,
+                )
                 if match:
                     index, lang, type_, codec, encoding_info = match.groups()
                     last_stream_info = FfmpegStream(
