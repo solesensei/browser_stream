@@ -179,7 +179,7 @@ class Config:
         echo.debug(f"Saving configuration to {path}")
         with open(path, "w") as file:
             d = dataclasses.asdict(self)
-            d["media_dir"] = str(d["media_dir"]) if d["media_dir"] else None
+            d["media_dir"] = d["media_dir"].as_posix() if d["media_dir"] else None
             json.dump(d, file, indent=4)
 
     def to_dict(self) -> dict:
