@@ -244,7 +244,7 @@ class Nginx:
 
                 # Serve media files
                 location /media/ {{
-                    alias "{media_path.as_posix()}";
+                    alias "{media_path.as_posix()}/";
                     autoindex {"on" if allow_index else "off"};
 
                     # Secure with token authentication
@@ -333,7 +333,7 @@ class FfmpegMediaInfo:
                         type=type_.lower(),  # type: ignore
                         codec=codec,
                         language=lang,
-                        encoding_info=encoding_info.strip(" ,"),
+                        encoding_info=encoding_info.split(",", 1)[-1].strip(),
                     )
                 else:
                     echo.warning(f"Cannot parse stream info from line: {line}")
