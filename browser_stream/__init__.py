@@ -27,7 +27,9 @@ class Exit(Exception):
 @dataclasses.dataclass
 class StreamMedia:
     path: Path
+    subtitles_burned: bool = False
     subtitle_path: Path | None = None
+    subtitle_lang: str | None = None
 
 
 class PlexAPI:
@@ -277,6 +279,12 @@ class FfmpegStream:
     encoding_info: str | None = None
     language: str | None = None
 
+    def __repr__(self) -> str:
+        t = f"{self.title} ({self.codec})"
+        if self.language:
+            t += f" [{self.language}]"
+        return t
+
 
 @dataclasses.dataclass
 class FfmpegMediaInfo:
@@ -285,6 +293,21 @@ class FfmpegMediaInfo:
     bitrate: str
     duration: dt.timedelta | None
     streams: list[FfmpegStream]
+
+    def __repr__(self) -> str:
+        return f"{self.title} ({self.filename})"
+
+    @property
+    def video(self) -> FfmpegStream:
+        return next((s for s in self.streams if s.type == "video"))
+
+    @property
+    def audios(self) -> list[FfmpegStream]:
+        return [s for s in self.streams if s.type == "audio"]
+
+    @property
+    def subtitles(self) -> list[FfmpegStream]:
+        return [s for s in self.streams if s.type == "subtitle"]
 
     @classmethod
     def parse(cls, output: str) -> "FfmpegMediaInfo":
@@ -378,6 +401,7 @@ class Ffmpeg:
         cmd = [self._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
+    @functools.cache
     def get_media_info(self, path: Path) -> FfmpegMediaInfo:
         res = self._run(
             "-i",
@@ -387,14 +411,61 @@ class Ffmpeg:
         )
         return FfmpegMediaInfo.parse(res)
 
-    def extract_subtitle(self, media_file: Path, subtitle_lang: str) -> Path:
-        echo.info(f"Extracting subtitle: {subtitle_lang} from {media_file}")
-        subtitle_file = media_file.with_suffix(f".{subtitle_lang}.vtt")
+    def print_media_info(self, path: Path) -> FfmpegMediaInfo:
+        media_file_info = self.get_media_info(path)
+        echo.info("Media info:")
+        echo.print(utils.bb("Filename: ") + media_file_info.filename.as_posix())
+        echo.print(utils.bb("Title: ") + media_file_info.title)
+        echo.print(utils.bb("Bitrate: ") + media_file_info.bitrate)
+        echo.print(utils.bb("Duration: ") + str(media_file_info.duration))
+        echo.print("-" * 50)
+        video = media_file_info.video
+        echo.print(utils.bb("Video: ") + f"({video.codec}) {video.title}")
+        for i, audio in enumerate(media_file_info.audios):
+            echo.print(
+                utils.bb(f"Audio {i} [{audio.language}]: ")
+                + f"({audio.codec}) {audio.title}"
+            )
+        for i, subtitle in enumerate(media_file_info.subtitles):
+            echo.print(
+                utils.bb(f"Subtitle {i} [{subtitle.language}]: ")
+                + f"({subtitle.codec}) {subtitle.title}"
+            )
+        return media_file_info
+
+    def extract_subtitle(
+        self, media_file: Path, stream_index: int, subtitle_lang: str | None
+    ) -> Path:
+        media_file_info = self.get_media_info(media_file)
+        if stream_index >= len(media_file_info.streams):
+            echo.print_json(media_file_info.to_dict())
+            raise Exit(f"Stream index out of range: {stream_index}")
+        subtitle = next(
+            (s for s in media_file_info.subtitles if s.index == stream_index), None
+        )
+        if subtitle is None:
+            subtitle_streams = [s.index for s in media_file_info.subtitles]
+            raise Exit(
+                f"Stream not found: {stream_index}. Available subtitles streams: {subtitle_streams}"
+            )
+        if (
+            subtitle_lang
+            and subtitle.language
+            and subtitle.language[:2] != subtitle_lang[:2]
+        ):
+            echo.warning(
+                f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}"
+            )
+        subtitle_lang = subtitle.language or subtitle_lang or "eng"
+        echo.info(
+            f"Extracting subtitle: {subtitle.title} [{subtitle_lang}] from {media_file}"
+        )
+        subtitle_file = media_file.with_suffix(f".{subtitle_lang}.{subtitle.codec}")
         self._run(
             "-i",
             media_file,
             "-map",
-            f"0:s:{subtitle_lang}",
+            f":s:{stream_index}",
             subtitle_file,
             live_output=True,
         )
@@ -406,6 +477,7 @@ class Ffmpeg:
         output_file: Path,
         audio_lang: str | None = None,
         audio_file: Path | None = None,
+        audio_stream: int | None = None,
         subtitle_file: Path | None = None,
         subtitle_lang: str | None = None,
         burn_subtitles: bool = False,
@@ -417,6 +489,7 @@ class Ffmpeg:
             media_file: Path to media file
             audio_lang: Audio language
             audio_file: Path to audio file
+            audio_stream: Audio stream index
             subtitle_file: Path to subtitle file
             subtitle_lang: Subtitle language
             burn_subtitles: Burn subtitles into video (default: False)
@@ -427,21 +500,51 @@ class Ffmpeg:
             media_file,
             "-c:v",
             "copy",
-            "-c:a",
-            "copy",
             "-y",
             output_file,
         ]
-        if audio_lang is not None and audio_file is not None:
-            args.extend(["-map", "0", "-map", f":a:{audio_lang}", audio_file])
+        if audio_file is not None:
+            if audio_stream is not None:
+                args.extend(["-map", f":a:{audio_stream}", audio_file])
+            elif audio_lang is not None:
+                args.extend(["-map", f":a:{audio_lang}", audio_file])
         if subtitle_file is not None:
             if burn_subtitles:
                 args.extend(["-vf", f"subtitles={subtitle_file}"])
             elif subtitle_lang is not None:
                 args.extend(["-map", f":s:{subtitle_lang}", subtitle_file])
             else:
-                args.extend(["-map", "0", "-c:s", "copy", subtitle_file])
+                args.extend(["-map", "0:s", subtitle_file])
         self._run(*args, live_output=True)
+        return output_file
+
+    def convert_subtitle_to_vtt(self, subtitle_file: Path) -> Path:
+        echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
+        output_file = subtitle_file.with_suffix(".vtt")
+        self._run(
+            "ffmpeg",
+            "-i",
+            subtitle_file,
+            "-y",
+            output_file,
+            live_output=True,
+        )
+        return output_file
+
+    def convert_audio_to_aac(self, audio_file: Path) -> Path:
+        echo.info(f"Converting audio file: {audio_file} to AAC format")
+        output_file = audio_file.with_suffix(".aac")
+        self._run(
+            "-i",
+            audio_file,
+            "-c:a",
+            "aac",
+            "-b:a",
+            "192k",
+            "-y",
+            output_file,
+            live_output=True,
+        )
         return output_file
 
 
@@ -572,15 +675,159 @@ def build_stream_url_plex(
     return plex.get_stream_url(media_file)
 
 
+def select_audio(
+    media_file_info: FfmpegMediaInfo,
+    audio_file: Path | None = None,
+    audio_lang: str | None = None,
+) -> Path | FfmpegStream:
+    ffmpeg = Ffmpeg()
+    audios = media_file_info.audios
+    if audio_file:
+        echo.info(f"Using audio file: {audio_file}")
+        audio_file_info = ffmpeg.get_media_info(audio_file)
+        audio = audio_file_info.audios[0]
+
+        if audio.codec != "aac":
+            audio_file_aac = audio_file.with_suffix(".aac")
+            if audio_file_aac.exists() and utils.confirm(
+                f"AAC audio file already exists: {audio_file_aac}. Do you want to use it?"
+            ):
+                return audio_file_aac
+            if utils.confirm(
+                f"Audio codec is not AAC: {audio.codec}. Do you want to convert it?"
+            ):
+                audio_file = ffmpeg.convert_audio_to_aac(audio_file)
+
+        if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
+            echo.warning(
+                f"Audio language mismatch: {audio.language} != {audio_lang}. Using audio file"
+            )
+        return audio_file
+
+    if audio_lang:
+        matched_audios = [
+            a for a in audios if a.language and a.language[:2] == audio_lang[:2]
+        ]
+        if not matched_audios:
+            echo.warning(f"No audio found for language: {audio_lang}")
+            select_audios_from = audios
+        elif len(matched_audios) == 1:
+            echo.info(f"Selected audio: {matched_audios[0].title}")
+            return matched_audios[0]
+        else:
+            select_audios_from = matched_audios
+
+    else:
+        select_audios_from = audios
+
+    index, _ = utils.select_options_interactive(
+        [f"[{a.language}] {a.title} ({a.codec})" for a in select_audios_from],
+        option_name="Audio",
+        message="Select audio stream",
+    )
+    return select_audios_from[index]
+
+
+def select_subtitle(
+    media_file: Path,
+    subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
+    burn_subtitles: bool = False,
+) -> tuple[Path | None, str | None]:
+    ffmpeg = Ffmpeg()
+    fs = FS()
+    media_file_info = ffmpeg.get_media_info(media_file)
+    subtitles = media_file_info.subtitles
+    select_subtitles_from: list[FfmpegStream] | None = None
+    selected_subtitle: int | None = None
+    if subtitle_file:
+        echo.info(f"Using subtitle file: {subtitle_file}")
+        subtitle_file_info = ffmpeg.get_media_info(subtitle_file)
+        subtitle = subtitle_file_info.subtitles[0]
+        if (
+            subtitle_lang
+            and subtitle.language
+            and subtitle.language[:2] != subtitle_lang[:2]
+        ):
+            echo.warning(
+                f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}. Using subtitle file"
+            )
+    elif subtitle_lang:
+        matched_subtitles = [
+            s for s in subtitles if s.language and s.language[:2] == subtitle_lang[:2]
+        ]
+        if not matched_subtitles:
+            echo.warning(f"No subtitle found for language: {subtitle_lang}")
+            select_subtitles_from = subtitles
+        elif len(matched_subtitles) == 1:
+            echo.info(f"Selected subtitle: {matched_subtitles[0].title}")
+            selected_subtitle = matched_subtitles[0].index
+            subtitle_lang = matched_subtitles[0].language
+        else:
+            select_subtitles_from = matched_subtitles
+    elif subtitles and utils.confirm("Do you want to select subtitle stream?"):
+        select_subtitles_from = subtitles
+    else:
+        return None, None
+
+    if select_subtitles_from:
+        index, _ = utils.select_options_interactive(
+            [f"[{s.language}] {s.title} ({s.codec})" for s in select_subtitles_from],
+            option_name="Subtitle",
+            message="Select subtitle stream",
+        )
+        selected_subtitle = select_subtitles_from[index].index
+        subtitle_lang = select_subtitles_from[index].language
+
+    if selected_subtitle is not None:
+        subtitle_file = ffmpeg.extract_subtitle(
+            media_file, selected_subtitle, subtitle_lang
+        )
+
+    assert subtitle_file is not None, "Subtitle file not found"
+
+    if not burn_subtitles and fs.get_extension(subtitle_file) != ".vtt":
+        vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
+        if vtt_subtitle_file.exists():
+            echo.info(
+                f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it, instead of {subtitle_file}"
+            )
+            subtitle_file = vtt_subtitle_file
+        elif utils.confirm(
+            f"Subtitle file is not in VTT format: {subtitle_file} (supported in HTML5). Do you want to convert it?"
+        ):
+            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file)
+
+    return subtitle_file, subtitle_lang
+
+
 def prepare_file_to_stream(
     media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
+    burn_subtitles: bool = False,
 ) -> StreamMedia:
     fs = FS()
     ffmpeg = Ffmpeg()
+
+    media_file_info = ffmpeg.print_media_info(media_file)
+    selected_audio = select_audio(
+        media_file_info=media_file_info,
+        audio_file=audio_file,
+        audio_lang=audio_lang,
+    )
+    subtitle_file, subtitle_lang = select_subtitle(
+        media_file=media_file,
+        subtitle_file=subtitle_file,
+        subtitle_lang=subtitle_lang,
+        burn_subtitles=burn_subtitles,
+    )
+
+    if burn_subtitles and not subtitle_file:
+        raise Exit("Subtitles not found for burning")
+
     if fs.get_extension(media_file) != ".mp4":
         output_file = media_file.with_suffix(".mp4")
         if output_file.exists() and not utils.confirm(
@@ -592,17 +839,26 @@ def prepare_file_to_stream(
             media_file = ffmpeg.convert_to_mp4(
                 media_file,
                 output_file,
-                audio_file=audio_file,
-                audio_lang=audio_lang,
+                audio_file=selected_audio if isinstance(selected_audio, Path) else None,
+                audio_stream=selected_audio.index
+                if isinstance(selected_audio, FfmpegStream)
+                else None,
+                audio_lang=audio_lang
+                or (
+                    selected_audio.language
+                    if isinstance(selected_audio, FfmpegStream)
+                    else None
+                ),
                 subtitle_file=subtitle_file,
                 subtitle_lang=subtitle_lang,
+                burn_subtitles=burn_subtitles,
             )
-    if subtitle_file is None and subtitle_lang:
-        subtitle_file = ffmpeg.extract_subtitle(media_file, subtitle_lang)
 
     return StreamMedia(
         path=media_file,
+        subtitles_burned=burn_subtitles,
         subtitle_path=subtitle_file,
+        subtitle_lang=subtitle_lang,
     )
 
 
@@ -612,6 +868,7 @@ def stream_nginx(
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
+    burn_subtitles: bool = False,
     do_not_convert: bool = False,
 ):
     """
@@ -648,18 +905,20 @@ def stream_nginx(
             audio_lang=audio_lang,
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
+            burn_subtitles=burn_subtitles,
         )
         media_file = stream_media.path
         subtitle_file = stream_media.subtitle_path
+        subtitle_lang = stream_media.subtitle_lang
 
-    if subtitle_file:
+    if subtitle_file and not burn_subtitles:
         echo.info(
             f"Create HTML file with video and subtitles: {media_file.with_suffix('.html')}"
         )
         html_data = html.get_video_html_with_subtitles(
             video_url=build_stream_url_nginx(media_file),
             subtitles_url=build_stream_url_nginx(subtitle_file),
-            language=subtitle_lang or "English",
+            language=subtitle_lang or "Unknown",
         )
         media_file = media_file.with_suffix(".html")
         fs.write_file(media_file, html_data)
@@ -675,6 +934,7 @@ def stream_plex(
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
+    burn_subtitles: bool = False,
     do_not_convert: bool = False,
 ):
     """

@@ -2,6 +2,7 @@ import json
 import typer
 import typing as tp
 import functools
+import click
 import textwrap
 from pathlib import Path
 import datetime as dt
@@ -12,18 +13,42 @@ import subprocess
 import dataclasses
 
 
+T = tp.TypeVar("T")
+
+
+def bb(text: str) -> str:
+    return typer.style(text, bold=True)
+
+
 def prompt(message: str, **kwargs) -> str:
-    return typer.prompt(typer.style(message, bold=True), **kwargs)
+    return typer.prompt(bb(message), **kwargs)
 
 
 def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
-    return typer.confirm(
-        typer.style(f"🤔 {message}", bold=True), default=default, abort=abort
-    )
+    return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
 
 
 def prompt_path(message: str) -> Path:
-    return typer.prompt(typer.style(message, bold=True), type=Path)
+    return typer.prompt(bb(message), type=Path)
+
+
+def select_options_interactive(
+    options: tp.Sequence[T],
+    option_name: str,
+    message: str = "Options:",
+) -> tuple[int, T]:
+    echo.print(bb(message))
+    for i, _option in enumerate(options, start=1):
+        echo.print(f"[{i}] {_option}")
+    select_i = int(
+        typer.prompt(
+            bb(f"Select {option_name}"),
+            show_choices=False,
+            type=click.Choice([str(i) for i in range(1, len(options) + 1)]),
+            default="1",
+        )
+    )
+    return select_i - 1, options[select_i - 1]
 
 
 def format_list(data: list[str]) -> str:
@@ -99,8 +124,8 @@ def print_sudo_warning() -> None:
 
 def get_sudo_pass(for_which_command: list[str], what_happens: str) -> str:
     print_sudo_warning()
-    echo.print(typer.style("Command: ", bold=True) + " ".join(for_which_command))
-    echo.print(typer.style("What happens: ", bold=True) + what_happens)
+    echo.print(bb("Command: ") + " ".join(for_which_command))
+    echo.print(bb("What happens: ") + what_happens)
     return _get_sudo_password()
 
 

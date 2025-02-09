@@ -234,6 +234,11 @@ def stream_command(
         exists=True,
         show_default=False,
     ),
+    burn_subtitles: bool = typer.Option(
+        False,
+        help="Burn subtitles into video stream",
+        show_default=False,
+    ),
     do_not_convert: bool = typer.Option(
         False,
         help="Skip converting media file to MP4 format. Will not work for browsers",
@@ -272,6 +277,7 @@ def stream_command(
             media_file=media_file,
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
+            burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
             audio_file=audio_file,
             do_not_convert=do_not_convert,
@@ -281,6 +287,7 @@ def stream_command(
             media_file=media_file,
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
+            burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
             do_not_convert=do_not_convert,
         )
