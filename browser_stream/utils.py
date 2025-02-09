@@ -4,6 +4,7 @@ import typing as tp
 import functools
 import textwrap
 from pathlib import Path
+import datetime as dt
 from browser_stream.echo import echo
 import browser_stream.config as config
 import secrets
@@ -101,6 +102,22 @@ def get_sudo_pass(for_which_command: list[str], what_happens: str) -> str:
     echo.print(typer.style("Command: ", bold=True) + " ".join(for_which_command))
     echo.print(typer.style("What happens: ", bold=True) + what_happens)
     return _get_sudo_password()
+
+
+def parse_duration(duration: str) -> dt.timedelta:
+    """01:42:18.05"""
+    parts = duration.split(":")
+    if "." in parts[-1]:
+        seconds, milliseconds = parts[-1].split(".")
+        parts[-1] = seconds
+        milliseconds_i = int(milliseconds)
+    else:
+        milliseconds_i = 0
+    parts = list(map(int, parts))
+    hours, minutes, seconds = parts
+    return dt.timedelta(
+        hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds_i
+    )
 
 
 @dataclasses.dataclass

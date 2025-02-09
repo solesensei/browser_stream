@@ -6,8 +6,9 @@ import typing as tp
 import functools
 import urllib.parse
 import dataclasses
+import re
 import tempfile
-
+import datetime as dt
 import typer
 
 import browser_stream.utils as utils
@@ -267,6 +268,118 @@ class Nginx:
         """)
 
 
+@dataclasses.dataclass
+class FfmpegStream:
+    index: int
+    type: tp.Literal["video", "audio", "subtitle"]
+    codec: str
+    title: str | None = None
+    encoding_info: str | None = None
+    language: str | None = None
+
+
+@dataclasses.dataclass
+class FfmpegMediaInfo:
+    filename: Path
+    title: str
+    bitrate: str
+    duration: dt.timedelta | None
+    streams: list[FfmpegStream]
+
+    @classmethod
+    def parse(cls, output: str) -> "FfmpegMediaInfo":
+        """
+              Input #0, matroska,webm, from '/media/elementsEx/files/films/Redline (2009)/Redline (2009).mkv':
+        Metadata:
+          title           : Красная черта.(2009).BDRip.720p.(DVD5).[NoLimits-Team]
+          encoder         : libebml v1.3.0 + libmatroska v1.4.0
+          creation_time   : 2013-05-18T16:13:13.000000Z
+        Duration: 01:42:18.05, start: 0.000000, bitrate: 5984 kb/s
+          Stream #0:0(eng): Video: h264 (High), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
+          Metadata:
+            title           : Красная черта.(2009).BDRip.720p.[NoLimits-Team]
+          Stream #0:1(rus): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s (default)
+          Metadata:
+            title           : JAM & Eladiel (Animedia)
+          Stream #0:2(rus): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s
+          Metadata:
+            title           : Ancord & Nika Lenina
+          Stream #0:3(rus): Audio: ac3, 48000 Hz, stereo, fltp, 320 kb/s
+          Metadata:
+            title           : MCA & Kasumi
+          Stream #0:4(jpn): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s
+          Metadata:
+            title           : Японская
+        """
+        lines = output.splitlines()
+
+        filename: Path = Path()
+        title: str = ""
+        bitrate: str = ""
+        duration: dt.timedelta = dt.timedelta()
+        stream_section: bool = False
+        last_stream_info: FfmpegStream | None = None
+        streams: list[FfmpegStream] = []
+
+        for i, line in enumerate(lines):
+            if "from" in line:
+                match = re.search(r"from '(.+)'", line)
+                if match:
+                    filename = Path(match.group(1))
+                else:
+                    echo.warning(f"Cannot parse filename from line: {line}")
+            if "Duration" in line:
+                match = re.search(r"Duration: (.+?),", line)
+                if match:
+                    duration = utils.parse_duration(match.group(1))
+                else:
+                    echo.warning(f"Cannot parse duration from line: {line}")
+            if "title" in line and last_stream_info is None:
+                match = re.search(r"title\s+:\s+(.+)", line)
+                if match:
+                    title = match.group(1)
+                else:
+                    echo.warning(f"Cannot parse title from line: {line}")
+            if "bitrate" in line:
+                match = re.search(r"bitrate:\s+(.+)", line)
+                if match:
+                    bitrate = match.group(1)
+                else:
+                    echo.warning(f"Cannot parse bitrate from line: {line}")
+            if "Stream" in line:
+                if last_stream_info:
+                    streams.append(last_stream_info)
+                match = re.search(
+                    r"Stream #\d+:(\d+)\((\w+)\): (\w+): (\w+) (.+)", line
+                )
+                if match:
+                    index, lang, type_, codec, encoding_info = match.groups()
+                    last_stream_info = FfmpegStream(
+                        index=int(index),
+                        type=type_.lower(),  # type: ignore
+                        codec=codec,
+                        language=lang,
+                        encoding_info=encoding_info,
+                    )
+            if "title" in line and last_stream_info:
+                match = re.search(r"title\s+:\s+(.+)", line)
+                if match:
+                    last_stream_info.title = match.group(1)
+                else:
+                    echo.warning(f"Cannot parse stream title from line: {line}")
+
+        if last_stream_info:
+            streams.append(last_stream_info)
+
+        return cls(
+            filename=filename,
+            title=title,
+            bitrate=bitrate,
+            duration=duration,
+            streams=streams,
+        )
+
+
 class Ffmpeg:
     """Wrapper around ffmpeg command"""
 
@@ -283,13 +396,14 @@ class Ffmpeg:
         cmd = [self._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
-    def get_media_info(self, path: Path) -> str:
-        return self._run(
+    def get_media_info(self, path: Path) -> FfmpegMediaInfo:
+        res = self._run(
             "-i",
             path.resolve(),
             "-hide_banner",
             exit_on_error=False,
         )
+        return FfmpegMediaInfo.parse(res)
 
     def extract_subtitle(self, media_file: Path, subtitle_lang: str) -> Path:
         echo.info(f"Extracting subtitle: {subtitle_lang} from {media_file}")
