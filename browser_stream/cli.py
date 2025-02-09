@@ -205,7 +205,6 @@ def stream_command(
         dir_okay=False,
         file_okay=True,
         exists=True,
-        prompt=True,
         show_default=False,
     ),
     audio_lang: str | None = typer.Option(
@@ -271,7 +270,7 @@ def stream_command(
             "Only one of --with-nginx or --with-plex can be enabled",
             param_hint="--with-nginx or --with-plex",
         )
-    media_file = media_file.resolve()
+    media_file = (media_file or utils.prompt_path("Enter path to media file")).resolve()
     if with_nginx:
         stream_nginx(
             media_file=media_file,
