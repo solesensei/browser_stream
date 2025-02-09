@@ -270,6 +270,11 @@ def stream_command(
             "Only one of --with-nginx or --with-plex can be enabled",
             param_hint="--with-nginx or --with-plex",
         )
+    elif not with_nginx and not with_plex:
+        raise typer.BadParameter(
+            "At least one of --with-nginx or --with-plex must be enabled",
+            param_hint="--with-nginx or --with-plex",
+        )
     media_file = (media_file or utils.prompt_path("Enter path to media file")).resolve()
     if with_nginx:
         stream_nginx(
@@ -289,11 +294,6 @@ def stream_command(
             burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
             do_not_convert=do_not_convert,
-        )
-    else:
-        raise typer.BadParameter(
-            "At least one of --with-nginx or --with-plex must be enabled",
-            param_hint="--with-nginx or --with-plex",
         )
 
 
