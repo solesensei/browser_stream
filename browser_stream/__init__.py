@@ -531,6 +531,8 @@ class Ffmpeg:
             "ffmpeg",
             "-i",
             subtitle_file,
+            "-c:s",
+            "webvtt",
             "-y",
             output_file,
             live_output=True,
@@ -802,7 +804,7 @@ def select_subtitle(
             )
             subtitle_file = vtt_subtitle_file
         elif utils.confirm(
-            f"Subtitle file is not in VTT format: {subtitle_file} (supported in HTML5). Do you want to convert it?"
+            f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
             subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file)
 
