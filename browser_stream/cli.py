@@ -199,8 +199,8 @@ def plex_command(
 
 @app.command("stream")
 def stream_command(
-    media_file: Path = typer.Option(
-        ...,
+    media_file: Path | None = typer.Option(
+        None,
         help="Path to media file",
         dir_okay=False,
         file_okay=True,
