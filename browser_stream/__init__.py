@@ -684,11 +684,12 @@ def build_stream_url_plex(
 
 
 def select_audio(
-    media_file_info: FfmpegMediaInfo,
+    media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
 ) -> Path | FfmpegStream:
     ffmpeg = Ffmpeg()
+    media_file_info = ffmpeg.get_media_info(media_file)
     audios = media_file_info.audios
     if audio_file:
         echo.info(f"Using audio file: {audio_file}")
@@ -734,7 +735,13 @@ def select_audio(
         option_name="Audio",
         message="Select audio stream",
     )
-    return select_audios_from[index]
+    selected_audio = select_audios_from[index]
+    if selected_audio.codec != "aac" and utils.confirm(
+        f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
+    ):
+        audio_file = ffmpeg.convert_audio_to_aac(media_file_info.filename)
+        return audio_file
+    return selected_audio
 
 
 def select_subtitle(
@@ -822,9 +829,9 @@ def prepare_file_to_stream(
     fs = FS()
     ffmpeg = Ffmpeg()
 
-    media_file_info = ffmpeg.print_media_info(media_file)
+    ffmpeg.print_media_info(media_file)
     selected_audio = select_audio(
-        media_file_info=media_file_info,
+        media_file=media_file,
         audio_file=audio_file,
         audio_lang=audio_lang,
     )
