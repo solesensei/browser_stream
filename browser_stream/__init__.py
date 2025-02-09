@@ -12,6 +12,7 @@ import datetime as dt
 import typer
 
 import browser_stream.utils as utils
+import browser_stream.config as config
 from browser_stream.echo import echo
 
 
@@ -696,7 +697,7 @@ def select_audio(
         audio_file_info = ffmpeg.get_media_info(audio_file)
         audio = audio_file_info.audios[0]
 
-        if audio.codec != "aac":
+        if audio.codec not in config.BROWSER_AUDIO_CODECS:
             audio_file_aac = audio_file.with_suffix(".aac")
             if audio_file_aac.exists() and utils.confirm(
                 f"AAC audio file already exists: {audio_file_aac}. Do you want to use it?"
@@ -736,7 +737,7 @@ def select_audio(
         message="Select audio stream",
     )
     selected_audio = select_audios_from[index]
-    if selected_audio.codec != "aac" and utils.confirm(
+    if selected_audio.codec not in config.BROWSER_AUDIO_CODECS and utils.confirm(
         f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
     ):
         audio_file = ffmpeg.convert_audio_to_aac(media_file_info.filename)
