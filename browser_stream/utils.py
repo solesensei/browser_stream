@@ -168,6 +168,7 @@ class Config:
         echo.debug(f"Loading configuration from {path}")
         with open(path, "r") as file:
             data = json.load(file)
+        data["media_dir"] = Path(data["media_dir"]) if data["media_dir"] else None
         return Config(**data)
 
     def save(self, path: Path = Path(config.CONFIG_PATH)) -> None:
