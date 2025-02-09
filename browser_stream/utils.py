@@ -113,7 +113,7 @@ def parse_duration(duration: str) -> dt.timedelta:
         milliseconds_i = int(milliseconds)
     else:
         milliseconds_i = 0
-    parts = list(map(int, parts))
+    parts = list(map(float, parts))
     hours, minutes, seconds = parts
     return dt.timedelta(
         hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds_i

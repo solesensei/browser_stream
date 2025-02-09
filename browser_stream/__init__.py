@@ -288,36 +288,12 @@ class FfmpegMediaInfo:
 
     @classmethod
     def parse(cls, output: str) -> "FfmpegMediaInfo":
-        """
-              Input #0, matroska,webm, from '/media/elementsEx/files/films/Redline (2009)/Redline (2009).mkv':
-        Metadata:
-          title           : Красная черта.(2009).BDRip.720p.(DVD5).[NoLimits-Team]
-          encoder         : libebml v1.3.0 + libmatroska v1.4.0
-          creation_time   : 2013-05-18T16:13:13.000000Z
-        Duration: 01:42:18.05, start: 0.000000, bitrate: 5984 kb/s
-          Stream #0:0(eng): Video: h264 (High), yuv420p(progressive), 1280x720 [SAR 1:1 DAR 16:9], 23.98 fps, 23.98 tbr, 1k tbn, 47.95 tbc (default)
-          Metadata:
-            title           : Красная черта.(2009).BDRip.720p.[NoLimits-Team]
-          Stream #0:1(rus): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s (default)
-          Metadata:
-            title           : JAM & Eladiel (Animedia)
-          Stream #0:2(rus): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s
-          Metadata:
-            title           : Ancord & Nika Lenina
-          Stream #0:3(rus): Audio: ac3, 48000 Hz, stereo, fltp, 320 kb/s
-          Metadata:
-            title           : MCA & Kasumi
-          Stream #0:4(jpn): Audio: ac3, 48000 Hz, 5.1(side), fltp, 448 kb/s
-          Metadata:
-            title           : Японская
-        """
         lines = output.splitlines()
 
         filename: Path = Path()
         title: str = ""
         bitrate: str = ""
         duration: dt.timedelta = dt.timedelta()
-        stream_section: bool = False
         last_stream_info: FfmpegStream | None = None
         streams: list[FfmpegStream] = []
 
@@ -349,9 +325,7 @@ class FfmpegMediaInfo:
             if "Stream" in line:
                 if last_stream_info:
                     streams.append(last_stream_info)
-                match = re.search(
-                    r"Stream #\d+:(\d+)\((\w+)\): (\w+): (\w+) (.+)", line
-                )
+                match = re.search(r"Stream #\d+:(\d+)\((\w+)\): (\w+): (\w+)(.+)", line)
                 if match:
                     index, lang, type_, codec, encoding_info = match.groups()
                     last_stream_info = FfmpegStream(
@@ -361,6 +335,8 @@ class FfmpegMediaInfo:
                         language=lang,
                         encoding_info=encoding_info,
                     )
+                else:
+                    echo.warning(f"Cannot parse stream info from line: {line}")
             if "title" in line and last_stream_info:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
