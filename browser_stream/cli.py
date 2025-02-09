@@ -39,6 +39,14 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
+media_app = typer.Typer(
+    name="media",
+    help="Media helpers",
+    context_settings=config.CONTEXT_SETTINGS,
+    pretty_exceptions_enable=config.PRETTY_EXCEPTIONS,
+    rich_markup_mode="rich",
+)
+app.add_typer(media_app)
 
 
 @app.command("config")
@@ -156,8 +164,8 @@ def nginx_command(
     echo.info("Nginx configuration generated successfully")
 
 
-@app.command("ffmpeg")
-def ffmpeg_command(
+@media_app.command("info")
+def media_info_command(
     media_file: Path = typer.Option(
         ...,
         help="Path to media file",
@@ -170,7 +178,7 @@ def ffmpeg_command(
 ):
     ffmeg = Ffmpeg()
     echo.info("Media info:")
-    echo.print(ffmeg.get_media_info(media_file))
+    echo.print_json(ffmeg.get_media_info(media_file).to_dict())
 
 
 @app.command("plex")

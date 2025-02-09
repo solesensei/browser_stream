@@ -355,6 +355,9 @@ class FfmpegMediaInfo:
             streams=streams,
         )
 
+    def to_dict(self) -> dict[str, tp.Any]:
+        return dataclasses.asdict(self)
+
 
 class Ffmpeg:
     """Wrapper around ffmpeg command"""
