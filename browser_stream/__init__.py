@@ -726,6 +726,7 @@ def select_audio(
     else:
         select_audios_from = audios
 
+    echo.print("-" * 50)
     index, _ = utils.select_options_interactive(
         [f"[{a.language}] {a.title} ({a.codec})" for a in select_audios_from],
         option_name="Audio",
@@ -777,6 +778,7 @@ def select_subtitle(
         return None, None
 
     if select_subtitles_from:
+        echo.print("-" * 50)
         index, _ = utils.select_options_interactive(
             [f"[{s.language}] {s.title} ({s.codec})" for s in select_subtitles_from],
             option_name="Subtitle",

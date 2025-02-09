@@ -17,6 +17,7 @@ PRETTY_EXCEPTIONS = _env_flag("PRETTY_EXCEPTIONS", default=True)
 RAISE_EXCEPTIONS = _env_flag("RAISE_EXCEPTIONS")
 JSON_OUTPUT = _env_flag("JSON_OUTPUT")
 PROMPT_COMMANDS = _env_flag("PROMPT_COMMANDS")
+PRINT_CMD = _env_flag("PRINT_CMD")
 
 
 # Constants
