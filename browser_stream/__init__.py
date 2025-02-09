@@ -352,7 +352,7 @@ class FfmpegMediaInfo:
                 if last_stream_info:
                     streams.append(last_stream_info)
                 match = re.search(
-                    r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(?: \((.+)\))?",
+                    r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(.+)",
                     line,
                 )
                 if match:
