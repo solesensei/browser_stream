@@ -471,7 +471,7 @@ class Ffmpeg:
             "-i",
             media_file,
             "-map",
-            f":s:{stream_index}",
+            f"0:{stream_index}",
             subtitle_file,
             live_output=True,
         )
