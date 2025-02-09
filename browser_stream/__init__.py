@@ -468,6 +468,13 @@ class Ffmpeg:
             f"Extracting subtitle: {subtitle.title} [{subtitle_lang}] from {media_file}"
         )
         subtitle_file = media_file.with_suffix(f".{subtitle_lang}.{subtitle.codec}")
+        if subtitle_file.exists():
+            if utils.confirm(
+                f"Subtitle file already exists: {subtitle_file}. Do you want to overwrite it?"
+            ):
+                subtitle_file.unlink()
+            else:
+                return subtitle_file
         self._run(
             "-i",
             media_file,
