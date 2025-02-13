@@ -53,7 +53,7 @@ def select_options_interactive(
 
 
 def url_encode(url: str) -> str:
-    return urllib.parse.quote(url)
+    return urllib.parse.quote(url, safe=":/?&=")
 
 
 def format_list(data: list[str]) -> str:

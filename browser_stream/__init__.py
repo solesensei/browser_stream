@@ -682,7 +682,7 @@ def build_stream_url_nginx(
     assert conf.nginx_domain_name, "Nginx domain name not found"
     assert conf.nginx_port, "Nginx port not found"
     return utils.url_encode(
-        f"http://{conf.nginx_domain_name}:{conf.nginx_port}/media/{media_file.as_posix()}?x-token={conf.nginx_secret}"
+        f"https://{conf.nginx_domain_name}:{conf.nginx_port}/media/{media_file.as_posix()}?x-token={conf.nginx_secret}"
     )
 
 
@@ -694,7 +694,7 @@ def build_stream_url_plex(
     assert conf.host_url, "Host URL not found"
     assert conf.plex_server_id, "Plex server ID not found"
     plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
-    return plex.get_stream_url(media_file)
+    return utils.url_encode(plex.get_stream_url(media_file))
 
 
 def select_audio(
