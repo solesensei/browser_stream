@@ -684,7 +684,7 @@ def build_stream_url_nginx(
     assert conf.media_dir, "Media directory not found"
     relative_path = media_file.relative_to(conf.media_dir)
     return utils.url_encode(
-        f"https://{conf.nginx_domain_name}:{conf.nginx_port}/{conf.media_dir}/{relative_path.as_posix()}?x-token={conf.nginx_secret}"
+        f"https://{conf.nginx_domain_name}:{conf.nginx_port}/{conf.media_dir.as_posix().lstrip('/')}/{relative_path.as_posix()}?x-token={conf.nginx_secret}"
     )
 
 
