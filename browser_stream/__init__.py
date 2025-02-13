@@ -765,10 +765,8 @@ def select_subtitle(
     media_file: Path,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
-    burn_subtitles: bool = False,
 ) -> tuple[Path | None, str | None]:
     ffmpeg = Ffmpeg()
-    fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
     subtitles = media_file_info.subtitles
     select_subtitles_from: list[FfmpegStream] | None = None
@@ -844,11 +842,13 @@ def prepare_file_to_stream(
         media_file=media_file,
         subtitle_file=subtitle_file,
         subtitle_lang=subtitle_lang,
-        burn_subtitles=burn_subtitles,
     )
 
     if burn_subtitles and not subtitle_file:
         raise Exit("Subtitles not found for burning")
+
+    if add_subtitles_to_mp4 and not subtitle_file:
+        raise Exit("Subtitles not found for adding to MP4")
 
     if fs.get_extension(media_file) != ".mp4":
         output_file = media_file.with_suffix(".mp4")
