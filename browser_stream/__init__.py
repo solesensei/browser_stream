@@ -333,8 +333,9 @@ class FfmpegMediaInfo:
                     echo.warning(f"Cannot parse filename from line: {line}")
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
-                if match and match.group(1) != "N/A":
-                    duration = utils.parse_duration(match.group(1))
+                if match:
+                    if match.group(1) != "N/A":
+                        duration = utils.parse_duration(match.group(1))
                 else:
                     echo.warning(f"Cannot parse duration from line: {line}")
             if line.startswith("title") and last_stream_info is None:
@@ -345,8 +346,9 @@ class FfmpegMediaInfo:
                     echo.warning(f"Cannot parse title from line: {line}")
             if "bitrate" in line:
                 match = re.search(r"bitrate:\s+(.+)", line)
-                if match and match.group(1) != "N/A":
-                    bitrate = match.group(1)
+                if match:
+                    if match.group(1) != "N/A":
+                        bitrate = match.group(1)
                 else:
                     echo.warning(f"Cannot parse bitrate from line: {line}")
             if "Stream" in line:
@@ -525,10 +527,10 @@ class Ffmpeg:
         if subtitle_file is not None:
             if burn_subtitles:
                 args.extend(["-vf", f"subtitles={subtitle_file}"])
-            elif subtitle_lang is not None:
-                args.extend(["-map", f":s:{subtitle_lang}", subtitle_file])
             else:
-                args.extend(["-map", "0:s", subtitle_file])
+                args.extend(["-i", subtitle_file, "-c:s", "mov_text"])
+            if subtitle_lang:
+                args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
         self._run(*args, live_output=True)
         return output_file
 
@@ -864,7 +866,7 @@ def prepare_file_to_stream(
         ):
             echo.warning("Skipping conversion. File already exists")
             media_file = output_file
-        else:
+        elif utils.confirm(f"Convert {media_file.name} to MP4", abort=True):
             media_file = ffmpeg.convert_to_mp4(
                 media_file,
                 output_file,
