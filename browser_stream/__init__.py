@@ -679,7 +679,7 @@ def build_stream_url_nginx(
 ) -> str:
     """Build stream URL for media file using Nginx server"""
     assert conf.nginx_secret, "Nginx secret not found"
-    assert conf.nginx_domain_name, "Host URL not found"
+    assert conf.nginx_domain_name, "Nginx domain name not found"
     assert conf.nginx_port, "Nginx port not found"
     return f"http://{conf.nginx_domain_name}:{conf.nginx_port}/media/{media_file.as_posix()}?x-token={conf.nginx_secret}"
 
