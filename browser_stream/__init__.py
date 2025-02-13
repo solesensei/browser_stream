@@ -974,8 +974,11 @@ def stream_nginx(
 
     echo.info("Preparation done")
     echo.printc("Stream media file using Nginx server", bold=True)
-    echo.print(typer.style("File: ", bold=True) + media_file.as_posix())
-    echo.print(typer.style("URL: ", bold=True) + build_stream_url_nginx(media_file))
+    echo.print(typer.style("File: ", bold=True) + f"'{media_file.as_posix()}'")
+    echo.print(
+        typer.style("URL: ", bold=True)
+        + typer.style(build_stream_url_nginx(media_file), fg="blue", bold=True)
+    )
     echo.printc(
         "\nDo not forget to update token with `browser-streamer nginx --update-token`",
         bold=True,
