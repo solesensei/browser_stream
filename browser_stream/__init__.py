@@ -973,10 +973,11 @@ def stream_nginx(
         fs.write_file(media_file, html_data)
 
     echo.info("Preparation done")
-    echo.printc("Stream media file using Nginx server:", bold=True)
-    echo.print(build_stream_url_nginx(media_file))
+    echo.printc("Stream media file using Nginx server", bold=True)
+    echo.print(typer.style("File: ", bold=True) + media_file.as_posix())
+    echo.print(typer.style("URL: ", bold=True) + build_stream_url_nginx(media_file))
     echo.printc(
-        "Update token with `browser-streamer nginx --update-token`",
+        "\nUpdate token with `browser-streamer nginx --update-token`",
         bold=True,
         color="yellow",
     )
