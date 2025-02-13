@@ -514,22 +514,32 @@ class Ffmpeg:
         args = [
             "-i",
             media_file,
-            "-map",
-            "0:v:0",
-            "-c:v",
-            "copy",
         ]
-        if audio_stream:
+        if audio_file is not None:
+            args.extend(["-i", audio_file])
+        if subtitle_file is not None and not burn_subtitles:
+            args.extend(["-i", subtitle_file])
+        args.extend(
+            [
+                "-map",
+                "0:v:0",
+                "-c:v",
+                "copy",
+            ]
+        )
+
+        if audio_file:
+            args.extend(["-map", "1:a:0", "-c:a", "copy"])
+
+        elif audio_stream:
             args.extend(["-map", f"0:a:{audio_stream}", "-c:a", "copy"])
-        elif audio_file is not None:
-            args.extend(["-i", audio_file, "-map", "1:0", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang}"])
-        if subtitle_file is not None:
+        if subtitle_file:
             if burn_subtitles:
                 args.extend(["-vf", f"subtitles={subtitle_file}"])
             else:
-                args.extend(["-i", subtitle_file, "-map", "1:0", "-c:s", "mov_text"])
+                args.extend(["-map", "1:0", "-c:s", "mov_text"])
             if subtitle_lang:
                 args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
         args.extend(["-y", output_file])
