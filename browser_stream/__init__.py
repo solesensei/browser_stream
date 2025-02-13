@@ -518,8 +518,6 @@ class Ffmpeg:
             "0:v:0",
             "-c:v",
             "copy",
-            "-y",
-            output_file,
         ]
         if audio_stream:
             args.extend(["-map", f"0:a:{audio_stream}", "-c:a", "copy"])
@@ -534,6 +532,7 @@ class Ffmpeg:
                 args.extend(["-i", subtitle_file, "-map", "1:0", "-c:s", "mov_text"])
             if subtitle_lang:
                 args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
+        args.extend(["-y", output_file])
         self._run(*args, live_output=True)
         return output_file
 
