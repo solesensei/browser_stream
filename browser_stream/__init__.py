@@ -974,7 +974,7 @@ def stream_nginx(
     echo.printc(
         "Update token with `browser-streamer nginx --update-token`",
         bold=True,
-        fg="yellow",
+        color="yellow",
     )
 
 
