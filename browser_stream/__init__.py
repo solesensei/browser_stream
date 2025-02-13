@@ -971,6 +971,11 @@ def stream_nginx(
     echo.info("Preparation done")
     echo.printc("Stream media file using Nginx server:", bold=True)
     echo.print(build_stream_url_nginx(media_file))
+    echo.printc(
+        "Update token with `browser-streamer nginx --update-token`",
+        bold=True,
+        fg="yellow",
+    )
 
 
 def stream_plex(
