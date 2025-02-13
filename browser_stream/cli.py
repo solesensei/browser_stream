@@ -301,6 +301,7 @@ def stream_command(
             audio_lang=audio_lang,
             do_not_convert=do_not_convert,
         )
+    echo.info("Completed")
 
 
 def run():
