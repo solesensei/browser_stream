@@ -333,7 +333,7 @@ class FfmpegMediaInfo:
                     echo.warning(f"Cannot parse filename from line: {line}")
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
-                if match:
+                if match and match != "N/A":
                     duration = utils.parse_duration(match.group(1))
                 else:
                     echo.warning(f"Cannot parse duration from line: {line}")
@@ -345,7 +345,7 @@ class FfmpegMediaInfo:
                     echo.warning(f"Cannot parse title from line: {line}")
             if "bitrate" in line:
                 match = re.search(r"bitrate:\s+(.+)", line)
-                if match:
+                if match and match != "N/A":
                     bitrate = match.group(1)
                 else:
                     echo.warning(f"Cannot parse bitrate from line: {line}")
