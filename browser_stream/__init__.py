@@ -333,6 +333,7 @@ class FfmpegMediaInfo:
                     echo.warning(f"Cannot parse filename from line: {line}")
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
+                print(match)
                 if match and match != "N/A":
                     duration = utils.parse_duration(match.group(1))
                 else:
