@@ -2,6 +2,7 @@ import json
 import typer
 import typing as tp
 import functools
+import urllib.parse
 import click
 import textwrap
 from pathlib import Path
@@ -49,6 +50,10 @@ def select_options_interactive(
         )
     )
     return select_i - 1, options[select_i - 1]
+
+
+def url_encode(url: str) -> str:
+    return urllib.parse.quote(url)
 
 
 def format_list(data: list[str]) -> str:
