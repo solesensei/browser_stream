@@ -708,6 +708,7 @@ def select_audio(
     media_file_info = ffmpeg.get_media_info(media_file)
     audios = media_file_info.audios
     if audio_file:
+        audio_file = audio_file.resolve()
         echo.info(f"Using audio file: {audio_file}")
         audio_file_info = ffmpeg.get_media_info(audio_file)
         audio = audio_file_info.audios[0]
@@ -776,6 +777,7 @@ def select_subtitle(
     select_subtitles_from: list[FfmpegStream] | None = None
     selected_subtitle: int | None = None
     if subtitle_file:
+        subtitle_file = subtitle_file.resolve()
         echo.info(f"Using subtitle file: {subtitle_file}")
         subtitle_file_info = ffmpeg.get_media_info(subtitle_file)
         subtitle = subtitle_file_info.subtitles[0]
