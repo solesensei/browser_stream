@@ -136,13 +136,13 @@ def parse_duration(duration: str) -> dt.timedelta:
     """01:42:18.05"""
     parts = duration.split(":")
     if "." in parts[-1]:
-        seconds, milliseconds = parts[-1].split(".")
-        parts[-1] = seconds
+        _seconds, milliseconds = parts[-1].split(".")
+        parts[-1] = _seconds
         milliseconds_i = int(milliseconds)
     else:
         milliseconds_i = 0
-    parts = list(map(float, parts))
-    hours, minutes, seconds = parts
+    parts_float = list(map(float, parts))
+    hours, minutes, seconds = parts_float
     return dt.timedelta(
         hours=hours, minutes=minutes, seconds=seconds, milliseconds=milliseconds_i
     )
