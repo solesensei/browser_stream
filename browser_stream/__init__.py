@@ -514,21 +514,24 @@ class Ffmpeg:
         args = [
             "-i",
             media_file,
+            "-map",
+            "0:v:0",
             "-c:v",
             "copy",
             "-y",
             output_file,
         ]
-        if audio_file is not None:
-            if audio_stream is not None:
-                args.extend(["-map", f":a:{audio_stream}", audio_file])
-            elif audio_lang is not None:
-                args.extend(["-map", f":a:{audio_lang}", audio_file])
+        if audio_stream:
+            args.extend(["-map", f"0:a:{audio_stream}", "-c:a", "copy"])
+        elif audio_file is not None:
+            args.extend(["-i", audio_file, "-map", "1:0", "-c:a", "copy"])
+        if audio_lang:
+            args.extend(["-metadata:s:a:0", f"language={audio_lang}"])
         if subtitle_file is not None:
             if burn_subtitles:
                 args.extend(["-vf", f"subtitles={subtitle_file}"])
             else:
-                args.extend(["-i", subtitle_file, "-c:s", "mov_text"])
+                args.extend(["-i", subtitle_file, "-map", "1:0", "-c:s", "mov_text"])
             if subtitle_lang:
                 args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
         self._run(*args, live_output=True)
@@ -816,19 +819,6 @@ def select_subtitle(
         )
 
     assert subtitle_file is not None, "Subtitle file not found"
-
-    if not burn_subtitles and fs.get_extension(subtitle_file) != ".vtt":
-        vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
-        if vtt_subtitle_file.exists():
-            echo.info(
-                f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it, instead of {subtitle_file}"
-            )
-            subtitle_file = vtt_subtitle_file
-        elif utils.confirm(
-            f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
-        ):
-            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file)
-
     return subtitle_file, subtitle_lang
 
 
@@ -888,6 +878,22 @@ def prepare_file_to_stream(
                 burn_subtitles=burn_subtitles,
             )
 
+    if (
+        subtitle_file
+        and not burn_subtitles
+        and fs.get_extension(subtitle_file) != ".vtt"
+    ):
+        vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
+        if vtt_subtitle_file.exists():
+            echo.info(
+                f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it for streaming"
+            )
+            subtitle_file = vtt_subtitle_file
+        elif utils.confirm(
+            f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
+        ):
+            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file)
+
     return StreamMedia(
         path=media_file,
         subtitles_burned=burn_subtitles,
@@ -946,6 +952,7 @@ def stream_nginx(
         media_file = stream_media.path
         subtitle_file = stream_media.subtitle_path
         subtitle_lang = stream_media.subtitle_lang
+        burn_subtitles = stream_media.subtitles_burned
 
     if subtitle_file and not burn_subtitles:
         echo.info(
