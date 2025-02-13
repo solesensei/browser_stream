@@ -238,6 +238,11 @@ def stream_command(
         help="Burn subtitles into video stream",
         show_default=False,
     ),
+    add_subtitles_to_mp4: bool = typer.Option(
+        False,
+        help="Add subtitles to MP4, by default False",
+        show_default=False,
+    ),
     do_not_convert: bool = typer.Option(
         False,
         help="Skip converting media file to MP4 format. Will not work for browsers",
@@ -285,6 +290,7 @@ def stream_command(
             audio_lang=audio_lang,
             audio_file=audio_file,
             do_not_convert=do_not_convert,
+            add_subtitles_to_mp4=add_subtitles_to_mp4,
         )
     elif with_plex:
         stream_plex(

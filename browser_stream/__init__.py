@@ -839,6 +839,7 @@ def prepare_file_to_stream(
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
     burn_subtitles: bool = False,
+    add_subtitles_to_mp4: bool = False,
 ) -> StreamMedia:
     fs = FS()
     ffmpeg = Ffmpeg()
@@ -880,8 +881,10 @@ def prepare_file_to_stream(
                     if isinstance(selected_audio, FfmpegStream)
                     else None
                 ),
-                subtitle_file=subtitle_file,
-                subtitle_lang=subtitle_lang,
+                subtitle_file=subtitle_file
+                if burn_subtitles or add_subtitles_to_mp4
+                else None,
+                subtitle_lang=subtitle_lang if add_subtitles_to_mp4 else None,
                 burn_subtitles=burn_subtitles,
             )
 
@@ -900,6 +903,7 @@ def stream_nginx(
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
     burn_subtitles: bool = False,
+    add_subtitles_to_mp4: bool = False,
     do_not_convert: bool = False,
 ):
     """
@@ -937,6 +941,7 @@ def stream_nginx(
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
             burn_subtitles=burn_subtitles,
+            add_subtitles_to_mp4=add_subtitles_to_mp4,
         )
         media_file = stream_media.path
         subtitle_file = stream_media.subtitle_path
