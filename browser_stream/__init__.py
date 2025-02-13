@@ -527,10 +527,8 @@ class Ffmpeg:
                 "copy",
             ]
         )
-
         if audio_file:
             args.extend(["-map", "1:a:0", "-c:a", "copy"])
-
         elif audio_stream:
             args.extend(["-map", f"0:a:{audio_stream}", "-c:a", "copy"])
         if audio_lang:
