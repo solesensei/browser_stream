@@ -967,9 +967,8 @@ def stream_nginx(
         fs.write_file(media_file, html_data)
 
     echo.info("Preparation done")
-    echo.info(
-        f"Stream media file using Nginx server: {build_stream_url_nginx(media_file)}"
-    )
+    echo.printc("Stream media file using Nginx server:", bold=True)
+    echo.print(build_stream_url_nginx(media_file))
 
 
 def stream_plex(
