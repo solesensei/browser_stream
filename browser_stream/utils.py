@@ -85,7 +85,7 @@ def run_process(
     if config.PROMPT_COMMANDS and not confirm(f"Run command: {command_str}"):
         raise ValueError("Aborted")
     if config.PRINT_CMD:
-        echo.warning(f"Running command: {command_str}")
+        echo.print(typer.style("Running command: ", bold=True) + command_str)
     else:
         echo.debug(f"Running command: {command_str}")
     process = subprocess.Popen(

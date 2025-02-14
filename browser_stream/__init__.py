@@ -727,7 +727,7 @@ def select_audio(
             ):
                 return audio_file_aac
             if utils.confirm(
-                f"Audio codec is not AAC: {audio.codec}. Do you want to convert it?"
+                f"Audio codec is not AAC: {audio.codec} (supported in browsers). Do you want to convert it?"
             ):
                 audio_file = ffmpeg.convert_audio_to_aac(audio_file)
 
