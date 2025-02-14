@@ -530,7 +530,7 @@ class Ffmpeg:
         if audio_file:
             args.extend(["-map", "1:a:0", "-c:a", "copy"])
         elif audio_stream:
-            args.extend(["-map", f"0:a:{audio_stream}", "-c:a", "copy"])
+            args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang}"])
         if subtitle_file:
