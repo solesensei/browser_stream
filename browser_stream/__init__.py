@@ -517,7 +517,6 @@ class Ffmpeg:
             burn_subtitles: Burn subtitles into video (default: False)
         """
         echo.info(f"Converting media file: {media_file} to MP4 format")
-        media_info = self.get_media_info(media_file)
         args = [
             "-i",
             media_file,
@@ -614,9 +613,14 @@ class Ffmpeg:
         self._run(*cmd, live_output=True)
         return audio_file
 
-    def convert_audio_to_aac(self, audio_file: Path) -> Path:
+    def convert_audio_to_aac(
+        self,
+        audio_file: Path,
+        audio_lang: str | None = None,
+    ) -> Path:
         echo.info(f"Converting audio file: {audio_file} to AAC format")
         output_file = audio_file.with_suffix(".aac")
+        audio_lang = audio_lang or "eng"
         self._run(
             "-i",
             audio_file,
@@ -624,6 +628,8 @@ class Ffmpeg:
             "aac",
             "-b:a",
             "192k",
+            "-metadata:s:a:0",
+            f"language={audio_lang}",
             "-y",
             output_file,
             live_output=True,
@@ -766,7 +772,7 @@ def select_audio(
     media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
-) -> Path | FfmpegStream:
+) -> tuple[Path | FfmpegStream, str | None]:
     ffmpeg = Ffmpeg()
     media_file_info = ffmpeg.get_media_info(media_file)
     audios = media_file_info.audios
@@ -781,17 +787,17 @@ def select_audio(
             if audio_file_aac.exists() and utils.confirm(
                 f"AAC audio file already exists: {audio_file_aac}. Do you want to use it (n – overwrite)?"
             ):
-                return audio_file_aac
+                return audio_file_aac, audio.language
             if utils.confirm(
                 f"Audio codec is not AAC: {audio.codec} (supported in browsers). Do you want to convert it?"
             ):
-                audio_file = ffmpeg.convert_audio_to_aac(audio_file)
+                audio_file = ffmpeg.convert_audio_to_aac(audio_file, audio.language)
 
         if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
             echo.warning(
                 f"Audio language mismatch: {audio.language} != {audio_lang}. Using audio file"
             )
-        return audio_file
+        return audio_file, audio.language
 
     if audio_lang:
         matched_audios = [
@@ -802,7 +808,7 @@ def select_audio(
             select_audios_from = audios
         elif len(matched_audios) == 1:
             echo.info(f"Selected audio: {matched_audios[0].title}")
-            return matched_audios[0]
+            return matched_audios[0], matched_audios[0].language
         else:
             select_audios_from = matched_audios
 
@@ -821,18 +827,18 @@ def select_audio(
         if audio_aac.exists() and utils.confirm(
             f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
         ):
-            return audio_aac
+            return audio_aac, selected_audio.language
         if utils.confirm(
             f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
         ):
             return ffmpeg.extract_audio_with_convert(
                 media_file=media_file,
                 stream_index=selected_audio.index,
-                audio_lang=audio_lang,
+                audio_lang=selected_audio.language,
                 codec="aac",
                 bitrate="192k",
-            )
-    return selected_audio
+            ), selected_audio.language
+    return selected_audio, selected_audio.language
 
 
 def select_subtitle(
@@ -929,7 +935,7 @@ def prepare_file_to_stream(
     ffmpeg = Ffmpeg()
 
     ffmpeg.print_media_info(media_file)
-    selected_audio = select_audio(
+    selected_audio, audio_lang = select_audio(
         media_file=media_file,
         audio_file=audio_file,
         audio_lang=audio_lang,
