@@ -501,6 +501,9 @@ class Ffmpeg:
             media_file,
             "-map",
             f"0:{stream_index}",
+            "-metadata:s:s:0",
+            f"language={subtitle_lang}",
+            "-y",
             subtitle_file,
             live_output=True,
         )
@@ -570,15 +573,21 @@ class Ffmpeg:
         self._run(*args, live_output=True)
         return output_file
 
-    def convert_subtitle_to_vtt(self, subtitle_file: Path) -> Path:
+    def convert_subtitle_to_vtt(
+        self, subtitle_file: Path, subtitle_lang: str | None
+    ) -> Path:
         echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
         output_file = subtitle_file.with_suffix(".vtt")
         self._assert_input_output_equal(subtitle_file, output_file)
+        media_info = self.get_media_info(subtitle_file)
+        subtitle_lang = subtitle_lang or media_info.subtitles[0].language or "eng"
         self._run(
             "-i",
             subtitle_file,
             "-c:s",
             "webvtt",
+            "-metadata:s:s:0",
+            f"language={subtitle_lang}",
             "-y",
             output_file,
             live_output=True,
@@ -623,6 +632,8 @@ class Ffmpeg:
             media_file,
             "-map",
             f"0:{stream_index}",
+            "-metadata:s:a:0",
+            f"language={audio_lang}",
         ]
         if is_copy:
             cmd.extend(["-c:a", "copy"])
@@ -640,9 +651,10 @@ class Ffmpeg:
         audio_lang: str | None = None,
     ) -> Path:
         echo.info(f"Converting audio file: {audio_file} to AAC format")
-        output_file = audio_file.with_suffix(".aac")
+        media_info = self.get_media_info(audio_file)
+        audio_lang = audio_lang or media_info.audios[0].language or "eng"
+        output_file = audio_file.with_suffix(f".{audio_lang}.aac")
         self._assert_input_output_equal(audio_file, output_file)
-        audio_lang = audio_lang or "eng"
         self._run(
             "-i",
             audio_file,
