@@ -440,9 +440,12 @@ class Ffmpeg:
         media_file_info = cls.get_media_info(path)
         echo.info("Media info:")
         echo.print(utils.bb("Filename: ") + media_file_info.filename.as_posix())
-        echo.print(utils.bb("Title: ") + media_file_info.title)
-        echo.print(utils.bb("Bitrate: ") + media_file_info.bitrate)
-        echo.print(utils.bb("Duration: ") + str(media_file_info.duration))
+        if media_file_info.title:
+            echo.print(utils.bb("Title: ") + media_file_info.title)
+        if media_file_info.bitrate:
+            echo.print(utils.bb("Bitrate: ") + media_file_info.bitrate)
+        if media_file_info.duration:
+            echo.print(utils.bb("Duration: ") + str(media_file_info.duration))
         echo.print("-" * 50)
         video = media_file_info.video
         echo.print(utils.bb("Video: ") + f"({video.codec}) {video.title}")
