@@ -690,22 +690,31 @@ class FS:
     def get_video_files(
         cls,
         directory: Path,
+        recursive_depth: int = 2,
     ) -> tp.Generator[Path, None, None]:
-        return cls.get_files_with_extensions(directory, config.VIDEO_EXTENSIONS)
+        return cls.get_files_with_extensions(
+            directory, config.VIDEO_EXTENSIONS, recursive_depth
+        )
 
     @classmethod
     def get_audio_files(
         cls,
         directory: Path,
+        recursive_depth: int = 2,
     ) -> tp.Generator[Path, None, None]:
-        return cls.get_files_with_extensions(directory, config.AUDIO_EXTENSIONS)
+        return cls.get_files_with_extensions(
+            directory, config.AUDIO_EXTENSIONS, recursive_depth
+        )
 
     @classmethod
     def get_subtitle_files(
         cls,
         directory: Path,
+        recursive_depth: int = 2,
     ) -> tp.Generator[Path, None, None]:
-        return cls.get_files_with_extensions(directory, config.SUBTITLE_EXTENSIONS)
+        return cls.get_files_with_extensions(
+            directory, config.SUBTITLE_EXTENSIONS, recursive_depth
+        )
 
     @staticmethod
     def create_dir(path: Path, sudo: bool = False):
