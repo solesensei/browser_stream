@@ -29,8 +29,13 @@ def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
 
 
-def prompt_path(message: str) -> Path:
-    return typer.prompt(bb(message), type=Path)
+def prompt_path(message: str, exists: bool = True) -> Path:
+    while True:
+        path: Path = prompt(message, type=Path)  # type: ignore
+        if exists and not path.exists():
+            echo.error(f"Path `{path}` does not exist")
+            continue
+        return path
 
 
 def select_options_interactive(

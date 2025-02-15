@@ -199,10 +199,10 @@ def plex_command(
 
 @app.command("stream")
 def stream_command(
-    media_file: Path | None = typer.Option(
+    media: Path | None = typer.Option(
         None,
-        help="Path to media file",
-        dir_okay=False,
+        help="Path to media file or directory",
+        dir_okay=True,
         file_okay=True,
         exists=True,
         show_default=False,
@@ -280,10 +280,10 @@ def stream_command(
             "At least one of --with-nginx or --with-plex must be enabled",
             param_hint="--with-nginx or --with-plex",
         )
-    media_file = (media_file or utils.prompt_path("Enter path to media file")).resolve()
+    media = (media or utils.prompt_path("Enter path to media file")).resolve()
     if with_nginx:
         stream_nginx(
-            media_file=media_file,
+            media=media,
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
             burn_subtitles=burn_subtitles,
@@ -294,7 +294,7 @@ def stream_command(
         )
     elif with_plex:
         stream_plex(
-            media_file=media_file,
+            media=media,
             subtitle_file=subtitle_file,
             subtitle_lang=subtitle_lang,
             burn_subtitles=burn_subtitles,

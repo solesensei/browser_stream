@@ -822,6 +822,27 @@ def build_stream_url_plex(
     return utils.url_encode(plex.get_stream_url(media_file))
 
 
+def select_video(
+    media_path: Path,
+) -> Path:
+    fs = FS()
+    if media_path.is_dir():
+        video_files = list(fs.get_video_files(media_path, recursive_depth=0))
+        if not video_files:
+            raise Exit(
+                f"No video files found in directory: {media_path}. Check your media directory"
+            )
+        index, _ = utils.select_options_interactive(
+            [f"{f.relative_to(media_path)}" for f in video_files],
+            option_name="Video",
+            message="Select video file",
+        )
+        return video_files[index]
+    if fs.get_extension(media_path) in config.VIDEO_EXTENSIONS:
+        return media_path
+    raise Exit(f"Unsupported video file: {media_path}")
+
+
 def select_audio(
     media_file: Path,
     audio_file: Path | None = None,
@@ -830,7 +851,7 @@ def select_audio(
     ffmpeg = Ffmpeg()
     fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
-    audios = media_file_info.audios
+    audios = list(media_file_info.audios)
     if audio_file:
         audio_file = audio_file.resolve()
         echo.info(f"Using audio file: {audio_file}")
@@ -854,46 +875,90 @@ def select_audio(
             )
         return audio_file, audio.language
 
+    external_audio_files = list(fs.get_audio_files(media_file.parent))
+    if len(external_audio_files) > 10:
+        echo.warning(
+            f"Found {len(external_audio_files)} audio files in {media_file.parent.name}. Showing only first 10"
+        )
+        external_audio_files = external_audio_files[:10]
+    external_audios: list[tuple[Path, FfmpegStream]] = []
+    for external_audio_file_ in external_audio_files:
+        audio_file_info = ffmpeg.get_media_info(external_audio_file_)
+        external_audios.append((external_audio_file_, audio_file_info.audios[0]))
+
     if audio_lang:
-        matched_audios = [
+        matched_internal_audios = [
             a for a in audios if a.language and a.language[:2] == audio_lang[:2]
         ]
-        if not matched_audios:
+        matched_external_audios = [
+            (f, a)
+            for f, a in external_audios
+            if a.language and a.language[:2] == audio_lang[:2]
+        ]
+        if not matched_internal_audios and not matched_external_audios:
             echo.warning(f"No audio found for language: {audio_lang}")
-            select_audios_from = audios
-        elif len(matched_audios) == 1:
-            echo.info(f"Selected audio: {matched_audios[0].title}")
-            return matched_audios[0], matched_audios[0].language
+        elif len(matched_internal_audios) == 1 and not matched_external_audios:
+            echo.info(f"Selected audio: {matched_internal_audios[0].title}")
+            return matched_internal_audios[0], matched_internal_audios[0].language
+        elif len(matched_external_audios) == 1 and not matched_internal_audios:
+            echo.info(f"Selected external audio: {matched_external_audios[0][1].title}")
+            return matched_external_audios[0][0], matched_external_audios[0][1].language
         else:
-            select_audios_from = matched_audios
-
-    else:
-        select_audios_from = audios
+            audios = matched_internal_audios
+            external_audios = matched_external_audios
 
     echo.print("-" * 50)
     index, _ = utils.select_options_interactive(
-        [f"[{a.language}] {a.title} ({a.codec})" for a in select_audios_from],
+        [f"[{a.language}] {a.title} ({a.codec})" for a in audios]
+        + [
+            f"{utils.bb('ext')} [{a.language}] {a.title} ({a.codec})"
+            for _, a in external_audios
+        ],
         option_name="Audio",
         message="Select audio stream",
     )
-    selected_audio = select_audios_from[index]
-    if selected_audio.codec not in config.BROWSER_AUDIO_CODECS:
+    audio_media_stream_selected = audios[index] if index < len(audios) else None
+    external_audio_file, audio_external_stream_selected = (
+        external_audios[index - len(audios)] if index >= len(audios) else (None, None)
+    )
+    if (
+        audio_media_stream_selected
+        and audio_media_stream_selected.codec not in config.BROWSER_AUDIO_CODECS
+    ):
         audio_aac = media_file.with_suffix(".aac")
         if audio_aac.exists() and utils.confirm(
             f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
         ):
-            return audio_aac, selected_audio.language
+            return audio_aac, audio_media_stream_selected.language
         if utils.confirm(
-            f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
+            f"Audio codec is not AAC: {audio_media_stream_selected.codec}. Do you want to convert it?"
         ):
             return ffmpeg.extract_audio_with_convert(
                 media_file=media_file,
-                stream_index=selected_audio.index,
-                audio_lang=selected_audio.language or audio_lang,
+                stream_index=audio_media_stream_selected.index,
+                audio_lang=audio_media_stream_selected.language or audio_lang,
                 codec="aac",
                 bitrate="192k",
-            ), selected_audio.language
-    return selected_audio, selected_audio.language
+            ), audio_media_stream_selected.language
+        return audio_media_stream_selected, audio_media_stream_selected.language
+    if (
+        external_audio_file
+        and audio_external_stream_selected
+        and audio_external_stream_selected.codec not in config.BROWSER_AUDIO_CODECS
+    ):
+        audio_aac = external_audio_file.with_suffix(".aac")
+        if audio_aac.exists() and utils.confirm(
+            f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
+        ):
+            return audio_aac, audio_external_stream_selected.language
+        if utils.confirm(
+            f"Audio codec is not AAC: {audio_external_stream_selected.codec}. Do you want to convert it?"
+        ):
+            return ffmpeg.convert_audio_to_aac(
+                external_audio_file, audio_external_stream_selected.language
+            ), audio_external_stream_selected.language
+        return audio_external_stream_selected, audio_external_stream_selected.language
+    raise Exit("Audio file not found")
 
 
 def select_subtitle(
@@ -902,10 +967,10 @@ def select_subtitle(
     subtitle_lang: str | None = None,
 ) -> tuple[Path | None, str | None]:
     ffmpeg = Ffmpeg()
+    fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
-    subtitles = media_file_info.subtitles
-    select_subtitles_from: list[FfmpegStream] | None = None
-    selected_subtitle: int | None = None
+    subtitles = list(media_file_info.subtitles)
+    media_stream_subtitle: int | None = None
     if subtitle_file:
         subtitle_file = subtitle_file.resolve()
         echo.info(f"Using subtitle file: {subtitle_file}")
@@ -919,37 +984,76 @@ def select_subtitle(
             echo.warning(
                 f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}. Using subtitle file"
             )
-    elif subtitle_lang:
-        matched_subtitles = [
+
+    external_subtitle_files = list(fs.get_subtitle_files(media_file.parent))
+    if len(external_subtitle_files) > 20:
+        echo.warning(
+            f"Found {len(external_subtitle_files)} subtitle files in {media_file.parent.name}. Showing only first 20"
+        )
+        external_subtitle_files = external_subtitle_files[:20]
+    external_subtitles: list[tuple[Path, FfmpegStream]] = []
+    for external_subtitle_file_ in external_subtitle_files:
+        subtitle_file_info = ffmpeg.get_media_info(external_subtitle_file_)
+        external_subtitles.append(
+            (external_subtitle_file_, subtitle_file_info.subtitles[0])
+        )
+
+    if subtitle_lang:
+        matched_internal_subtitles = [
             s for s in subtitles if s.language and s.language[:2] == subtitle_lang[:2]
         ]
-        if not matched_subtitles:
+        matched_external_subtitles = [
+            (f, s)
+            for f, s in external_subtitles
+            if s.language and s.language[:2] == subtitle_lang[:2]
+        ]
+        if not matched_internal_subtitles and not matched_external_subtitles:
             echo.warning(f"No subtitle found for language: {subtitle_lang}")
-            select_subtitles_from = subtitles
-        elif len(matched_subtitles) == 1:
-            echo.info(f"Selected subtitle: {matched_subtitles[0].title}")
-            selected_subtitle = matched_subtitles[0].index
-            subtitle_lang = matched_subtitles[0].language
+        elif len(matched_internal_subtitles) == 1 and not matched_external_subtitles:
+            echo.info(f"Selected subtitle: {matched_internal_subtitles[0].title}")
+            media_stream_subtitle = matched_internal_subtitles[0].index
+            subtitle_lang = matched_internal_subtitles[0].language
+        elif len(matched_external_subtitles) == 1 and not matched_internal_subtitles:
+            echo.info(
+                f"Selected external subtitle: {matched_external_subtitles[0][1].title}"
+            )
+            return matched_external_subtitles[0][0], matched_external_subtitles[0][
+                1
+            ].language
         else:
-            select_subtitles_from = matched_subtitles
-    elif subtitles and utils.confirm("Do you want to select subtitle stream?"):
-        select_subtitles_from = subtitles
-    else:
-        return None, None
+            subtitles = matched_internal_subtitles
+            external_subtitles = matched_external_subtitles
 
-    if select_subtitles_from:
+    if (
+        media_stream_subtitle is None
+        and (subtitles or external_subtitles)
+        and utils.confirm("Do you want to select subtitle stream?")
+    ):
         echo.print("-" * 50)
         index, _ = utils.select_options_interactive(
-            [f"[{s.language}] {s.title} ({s.codec})" for s in select_subtitles_from],
+            [f"[{s.language}] {s.title} ({s.codec})" for s in subtitles]
+            + [
+                f"{utils.bb('ext')} [{s.language}] {s.title} ({s.codec})"
+                for _, s in external_subtitles
+            ],
             option_name="Subtitle",
             message="Select subtitle stream",
         )
-        selected_subtitle = select_subtitles_from[index].index
-        subtitle_lang = select_subtitles_from[index].language
+        media_stream_subtitle = (
+            subtitles[index].index if index < len(subtitles) else None
+        )
+        subtitle_lang = subtitles[index].language if index < len(subtitles) else None
+        external_subtitle_file, subtitle_external_stream = (
+            external_subtitles[index - len(subtitles)]
+            if index >= len(subtitles)
+            else (None, None)
+        )
+        if external_subtitle_file and subtitle_external_stream:
+            return external_subtitle_file, subtitle_external_stream.language
 
-    if selected_subtitle is not None:
+    if media_stream_subtitle is not None:
         subtitle_file = ffmpeg.extract_subtitle(
-            media_file, selected_subtitle, subtitle_lang
+            media_file, media_stream_subtitle, subtitle_lang
         )
 
     assert subtitle_file is not None, "Subtitle file not found"
@@ -978,7 +1082,7 @@ def check_if_media_conversion_needed(
 
 
 def prepare_file_to_stream(
-    media_file: Path,
+    media: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
@@ -988,6 +1092,11 @@ def prepare_file_to_stream(
 ) -> StreamMedia:
     fs = FS()
     ffmpeg = Ffmpeg()
+
+    if media.is_dir():
+        media_file = select_video(media)
+    else:
+        media_file = media
 
     ffmpeg.print_media_info(media_file)
     selected_audio, audio_lang = select_audio(
@@ -1074,7 +1183,7 @@ def prepare_file_to_stream(
 
 
 def stream_nginx(
-    media_file: Path,
+    media: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
@@ -1099,10 +1208,10 @@ def stream_nginx(
         raise typer.BadParameter(
             "Media directory not found, run `browser-streamer nginx` first"
         )
-    if not media_file.as_posix().startswith(conf.media_dir.as_posix()):
+    if not media.as_posix().startswith(conf.media_dir.as_posix()):
         raise typer.BadParameter(
             f"Media file must be in media directory: {conf.media_dir}",
-            param_hint="media-file",
+            param_hint="--media",
         )
 
     if conf.nginx_allow_index:
@@ -1112,7 +1221,7 @@ def stream_nginx(
 
     if not do_not_convert:
         stream_media = prepare_file_to_stream(
-            media_file=media_file,
+            media=media,
             audio_file=audio_file,
             audio_lang=audio_lang,
             subtitle_file=subtitle_file,
@@ -1120,29 +1229,29 @@ def stream_nginx(
             burn_subtitles=burn_subtitles,
             add_subtitles_to_mp4=add_subtitles_to_mp4,
         )
-        media_file = stream_media.path
+        media = stream_media.path
         subtitle_file = stream_media.subtitle_path
         subtitle_lang = stream_media.subtitle_lang
         burn_subtitles = stream_media.subtitles_burned
 
     if subtitle_file and not burn_subtitles:
         echo.info(
-            f"Create HTML file with video and subtitles: {media_file.with_suffix('.html')}"
+            f"Create HTML file with video and subtitles: {media.with_suffix('.html')}"
         )
         html_data = html.get_video_html_with_subtitles(
-            video_url=build_stream_url_nginx(media_file),
+            video_url=build_stream_url_nginx(media),
             subtitles_url=build_stream_url_nginx(subtitle_file),
             language=subtitle_lang or "Unknown",
         )
-        media_file = media_file.with_suffix(".html")
-        fs.write_file(media_file, html_data)
+        media = media.with_suffix(".html")
+        fs.write_file(media, html_data)
 
     echo.info("Preparation done")
     echo.printc("Stream media file using Nginx server", bold=True)
-    echo.print(typer.style("File: ", bold=True) + f"'{media_file.as_posix()}'")
+    echo.print(typer.style("File: ", bold=True) + f"'{media.as_posix()}'")
     echo.print(
         typer.style("URL: ", bold=True)
-        + typer.style(build_stream_url_nginx(media_file), fg="blue", bold=True)
+        + typer.style(build_stream_url_nginx(media), fg="blue", bold=True)
     )
     echo.printc(
         "\nDo not forget to update token with `browser-streamer nginx --update-token`",
@@ -1152,7 +1261,7 @@ def stream_nginx(
 
 
 def stream_plex(
-    media_file: Path,
+    media: Path,
     audio_lang: str | None = None,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
