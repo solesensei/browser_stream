@@ -399,7 +399,7 @@ class FfmpegMediaInfo:
 
         return cls(
             filename=filename.resolve(),
-            title=title,
+            title=title or filename.stem.replace("_", " ").title(),
             bitrate=bitrate,
             duration=duration,
             streams=streams,
