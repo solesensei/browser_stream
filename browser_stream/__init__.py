@@ -577,7 +577,7 @@ class Ffmpeg:
             )
         if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
             echo.warning(f"Audio language mismatch: {audio.language} != {audio_lang}")
-        is_copy = code is None and bitrate is None
+        is_copy = codec is None and bitrate is None
         audio_lang = audio.language or audio_lang or "eng"
         audio_codec = codec or audio.codec
         echo.info(
