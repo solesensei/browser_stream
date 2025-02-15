@@ -956,10 +956,7 @@ def select_audio(
     external_audio_file, audio_external_stream_selected = (
         external_audios[index - len(audios)] if index >= len(audios) else (None, None)
     )
-    if (
-        audio_media_stream_selected
-        and audio_media_stream_selected.codec not in config.BROWSER_AUDIO_CODECS
-    ):
+    if audio_media_stream_selected:
         audio_aac = media_file.with_suffix(".aac")
         if audio_aac.exists() and utils.confirm(
             f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
@@ -976,11 +973,7 @@ def select_audio(
                 bitrate="192k",
             ), audio_media_stream_selected.language
         return audio_media_stream_selected, audio_media_stream_selected.language
-    if (
-        external_audio_file
-        and audio_external_stream_selected
-        and audio_external_stream_selected.codec not in config.BROWSER_AUDIO_CODECS
-    ):
+    if external_audio_file and audio_external_stream_selected:
         audio_aac = external_audio_file.with_suffix(".aac")
         if audio_aac.exists() and utils.confirm(
             f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
