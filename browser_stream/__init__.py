@@ -319,6 +319,12 @@ class FfmpegMediaInfo:
     def parse(cls, output: str, filename: Path) -> "FfmpegMediaInfo":
         lines = output.splitlines()
 
+        default_lang: str | None = None
+        if len(filename.suffixes) > 1:
+            lang = filename.suffixes[-2].lstrip(".")
+            if len(lang) in (2, 3):
+                default_lang = lang
+
         title: str = ""
         bitrate: str = ""
         duration: dt.timedelta = dt.timedelta()
@@ -372,7 +378,7 @@ class FfmpegMediaInfo:
                         index=int(index),
                         type=type_.lower(),  # type: ignore
                         codec=codec,
-                        language=lang,
+                        language=lang or default_lang,
                         encoding_info=encoding_info.split(",", 1)[-1].strip(),
                     )
                 else:
@@ -1199,7 +1205,7 @@ def prepare_file_to_stream(
         elif utils.confirm(
             f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
-            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file)
+            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
 
     return StreamMedia(
         path=media_file,
