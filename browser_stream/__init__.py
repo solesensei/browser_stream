@@ -397,22 +397,24 @@ class FfmpegMediaInfo:
 class Ffmpeg:
     """Wrapper around ffmpeg command"""
 
-    def __init__(self) -> None:
-        self._cmd = "ffmpeg"
+    _cmd = "ffmpeg"
 
     @functools.cache
-    def exit_if_not_installed(self):
-        if shutil.which(self._cmd) is None:
-            raise Exit(f"'{self._cmd}' is not found in PATH", code=2)
+    @classmethod
+    def exit_if_not_installed(cls):
+        if shutil.which(cls._cmd) is None:
+            raise Exit(f"'{cls._cmd}' is not found in PATH", code=2)
 
-    def _run(self, *args: tp.Any, **kwargs) -> str:
-        self.exit_if_not_installed()
-        cmd = [self._cmd, *map(str, args)]
+    @classmethod
+    def _run(cls, *args: tp.Any, **kwargs) -> str:
+        cls.exit_if_not_installed()
+        cmd = [cls._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
     @functools.cache
-    def get_media_info(self, path: Path) -> FfmpegMediaInfo:
-        res = self._run(
+    @classmethod
+    def get_media_info(cls, path: Path) -> FfmpegMediaInfo:
+        res = cls._run(
             "-i",
             path.resolve(),
             "-hide_banner",
@@ -420,8 +422,9 @@ class Ffmpeg:
         )
         return FfmpegMediaInfo.parse(res)
 
-    def print_media_info(self, path: Path) -> FfmpegMediaInfo:
-        media_file_info = self.get_media_info(path)
+    @classmethod
+    def print_media_info(cls, path: Path) -> FfmpegMediaInfo:
+        media_file_info = cls.get_media_info(path)
         echo.info("Media info:")
         echo.print(utils.bb("Filename: ") + media_file_info.filename.as_posix())
         echo.print(utils.bb("Title: ") + media_file_info.title)
@@ -511,6 +514,7 @@ class Ffmpeg:
             burn_subtitles: Burn subtitles into video (default: False)
         """
         echo.info(f"Converting media file: {media_file} to MP4 format")
+        media_info = self.get_media_info(media_file)
         args = [
             "-i",
             media_file,
@@ -772,7 +776,7 @@ def select_audio(
         if audio.codec not in config.BROWSER_AUDIO_CODECS:
             audio_file_aac = audio_file.with_suffix(".aac")
             if audio_file_aac.exists() and utils.confirm(
-                f"AAC audio file already exists: {audio_file_aac}. Do you want to use it?"
+                f"AAC audio file already exists: {audio_file_aac}. Do you want to use it (n – overwrite)?"
             ):
                 return audio_file_aac
             if utils.confirm(
@@ -888,6 +892,27 @@ def select_subtitle(
     return subtitle_file, subtitle_lang
 
 
+def check_if_media_conversion_needed(
+    media_file: Path,
+    audio_file: Path | None = None,
+    audio_stream: FfmpegStream | None = None,
+    subtitle_file: Path | None = None,
+    burn_subtitles: bool = False,
+) -> bool:
+    """Ad-hoc check if media file needs to be converted
+    Skip conversion if video already in MP4 format and has only one audio stream with needed codec
+    """
+    ffmpeg = Ffmpeg()
+    if audio_file or subtitle_file or burn_subtitles:
+        return True
+    media_info = ffmpeg.get_media_info(media_file)
+    if len(media_info.audios) > 1:
+        return True
+    if audio_stream and media_info.audios[0].codec != audio_stream.codec:
+        return True
+    return False
+
+
 def prepare_file_to_stream(
     media_file: Path,
     audio_file: Path | None = None,
@@ -918,33 +943,47 @@ def prepare_file_to_stream(
     if add_subtitles_to_mp4 and not subtitle_file:
         raise Exit("Subtitles not found for adding to MP4")
 
-    if fs.get_extension(media_file) != ".mp4":
-        output_file = media_file.with_suffix(".mp4")
-        if output_file.exists() and not utils.confirm(
-            f"File already exists: {output_file}, do you want to overwrite it?"
-        ):
-            echo.warning("Skipping conversion. File already exists")
-            media_file = output_file
-        elif utils.confirm(f"Convert {media_file.name} to MP4", abort=True):
-            media_file = ffmpeg.convert_to_mp4(
-                media_file,
-                output_file,
-                audio_file=selected_audio if isinstance(selected_audio, Path) else None,
-                audio_stream=selected_audio.index
+    output_file = (
+        media_file.with_suffix(".mp4")
+        if fs.get_extension(media_file) != ".mp4"
+        else media_file.with_suffix(".stream.mp4")
+    )
+
+    if not check_if_media_conversion_needed(
+        media_file=media_file,
+        audio_file=selected_audio if isinstance(selected_audio, Path) else None,
+        audio_stream=selected_audio
+        if isinstance(selected_audio, FfmpegStream)
+        else None,
+        subtitle_file=subtitle_file,
+        burn_subtitles=burn_subtitles,
+    ):
+        echo.info(f"File: {media_file.name} is already in MP4 format. Use it as is")
+    elif not output_file.exists() or utils.confirm(
+        f"File already exists: {output_file.name}, do you want to overwrite it?"
+    ):
+        media_file = ffmpeg.convert_to_mp4(
+            media_file,
+            output_file,
+            audio_file=selected_audio if isinstance(selected_audio, Path) else None,
+            audio_stream=selected_audio.index
+            if isinstance(selected_audio, FfmpegStream)
+            else None,
+            audio_lang=audio_lang
+            or (
+                selected_audio.language
                 if isinstance(selected_audio, FfmpegStream)
-                else None,
-                audio_lang=audio_lang
-                or (
-                    selected_audio.language
-                    if isinstance(selected_audio, FfmpegStream)
-                    else None
-                ),
-                subtitle_file=subtitle_file
-                if burn_subtitles or add_subtitles_to_mp4
-                else None,
-                subtitle_lang=subtitle_lang if add_subtitles_to_mp4 else None,
-                burn_subtitles=burn_subtitles,
-            )
+                else None
+            ),
+            subtitle_file=subtitle_file
+            if burn_subtitles or add_subtitles_to_mp4
+            else None,
+            subtitle_lang=subtitle_lang if add_subtitles_to_mp4 else None,
+            burn_subtitles=burn_subtitles,
+        )
+    else:
+        echo.info(f"Using existing file: {output_file.name}")
+        media_file = output_file
 
     if (
         subtitle_file
