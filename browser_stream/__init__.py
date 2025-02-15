@@ -898,12 +898,12 @@ def select_audio(
 
     if audio_lang:
         matched_internal_audios = [
-            a for a in audios if a.language and a.language[:2] == audio_lang[:2]
+            a for a in audios if a.language is None or a.language[:2] == audio_lang[:2]
         ]
         matched_external_audios = [
             (f, a)
             for f, a in external_audios
-            if a.language and a.language[:2] == audio_lang[:2]
+            if a.language is None or a.language[:2] == audio_lang[:2]
         ]
         if not matched_internal_audios and not matched_external_audios:
             echo.warning(f"No audio found for language: {audio_lang}")
@@ -1010,12 +1010,14 @@ def select_subtitle(
 
     if subtitle_lang:
         matched_internal_subtitles = [
-            s for s in subtitles if s.language and s.language[:2] == subtitle_lang[:2]
+            s
+            for s in subtitles
+            if s.language is None or s.language[:2] == subtitle_lang[:2]
         ]
         matched_external_subtitles = [
             (f, s)
             for f, s in external_subtitles
-            if s.language and s.language[:2] == subtitle_lang[:2]
+            if s.language is None or s.language[:2] == subtitle_lang[:2]
         ]
         if not matched_internal_subtitles and not matched_external_subtitles:
             echo.warning(f"No subtitle found for language: {subtitle_lang}")
