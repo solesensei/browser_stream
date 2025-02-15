@@ -19,7 +19,28 @@ JSON_OUTPUT = _env_flag("JSON_OUTPUT")
 PROMPT_COMMANDS = _env_flag("PROMPT_COMMANDS")
 PRINT_CMD = _env_flag("PRINT_CMD")
 BROWSER_AUDIO_CODECS = os.getenv("BROWSER_AUDIO_CODECS", "aac")
-
+VIDEO_EXTENSIONS = {
+    "mp4",
+    "mkv",
+    "avi",
+    "mov",
+    "webm",
+    "flv",
+    "wmv",
+    "m4v",
+    "3gp",
+    "ts",
+}
+AUDIO_EXTENSIONS = {
+    "mp3",
+    "m4a",
+    "aac",
+    "flac",
+    "wav",
+    "wma",
+    "mka",
+}
+SUBTITLE_EXTENSIONS = {"srt", "ssa", "ass", "vtt"}
 
 # Constants
 CONFIG_PATH = os.path.expanduser("~/.browser_stream/config.json")

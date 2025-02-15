@@ -493,6 +493,12 @@ class Ffmpeg:
         )
         return subtitle_file
 
+    def _assert_input_output_equal(self, input_file: Path, output_file: Path):
+        if input_file == output_file:
+            raise Exit(
+                f"ffmpeg: Output file {input_file.name} cannot be the same as input file"
+            )
+
     def convert_to_mp4(
         self,
         media_file: Path,
@@ -517,6 +523,7 @@ class Ffmpeg:
             burn_subtitles: Burn subtitles into video (default: False)
         """
         echo.info(f"Converting media file: {media_file} to MP4 format")
+        self._assert_input_output_equal(media_file, output_file)
         args = [
             "-i",
             media_file,
@@ -553,6 +560,7 @@ class Ffmpeg:
     def convert_subtitle_to_vtt(self, subtitle_file: Path) -> Path:
         echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
         output_file = subtitle_file.with_suffix(".vtt")
+        self._assert_input_output_equal(subtitle_file, output_file)
         self._run(
             "-i",
             subtitle_file,
@@ -620,6 +628,7 @@ class Ffmpeg:
     ) -> Path:
         echo.info(f"Converting audio file: {audio_file} to AAC format")
         output_file = audio_file.with_suffix(".aac")
+        self._assert_input_output_equal(audio_file, output_file)
         audio_lang = audio_lang or "eng"
         self._run(
             "-i",
@@ -660,7 +669,43 @@ class FS:
 
     @staticmethod
     def get_extension(path: Path) -> str:
-        return path.suffix.lstrip(".")
+        return path.suffixes[-1].lstrip(".")
+
+    @classmethod
+    def get_files_with_extensions(
+        cls,
+        directory: Path,
+        extensions: tp.Container[str],
+        recursive_depth: int = 2,
+    ) -> tp.Generator[Path, None, None]:
+        for path in directory.iterdir():
+            if path.is_dir() and recursive_depth > 0:
+                yield from cls.get_files_with_extensions(
+                    path, extensions, recursive_depth - 1
+                )
+            elif path.is_file() and cls.get_extension(path) in extensions:
+                yield path
+
+    @classmethod
+    def get_video_files(
+        cls,
+        directory: Path,
+    ) -> tp.Generator[Path, None, None]:
+        return cls.get_files_with_extensions(directory, config.VIDEO_EXTENSIONS)
+
+    @classmethod
+    def get_audio_files(
+        cls,
+        directory: Path,
+    ) -> tp.Generator[Path, None, None]:
+        return cls.get_files_with_extensions(directory, config.AUDIO_EXTENSIONS)
+
+    @classmethod
+    def get_subtitle_files(
+        cls,
+        directory: Path,
+    ) -> tp.Generator[Path, None, None]:
+        return cls.get_files_with_extensions(directory, config.SUBTITLE_EXTENSIONS)
 
     @staticmethod
     def create_dir(path: Path, sudo: bool = False):
@@ -774,6 +819,7 @@ def select_audio(
     audio_lang: str | None = None,
 ) -> tuple[Path | FfmpegStream, str | None]:
     ffmpeg = Ffmpeg()
+    fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
     audios = media_file_info.audios
     if audio_file:
