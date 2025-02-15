@@ -159,17 +159,18 @@ class PlexAPI:
 class Nginx:
     """Wrapper around nginx command"""
 
-    def __init__(self) -> None:
-        self._cmd = "nginx"
+    _cmd = "nginx"
 
+    @classmethod
     @functools.cache
-    def exit_if_not_installed(self):
-        if shutil.which(self._cmd) is None:
-            raise Exit(f"'{self._cmd}' is not found in PATH", code=2)
+    def exit_if_not_installed(cls):
+        if shutil.which(cls._cmd) is None:
+            raise Exit(f"'{cls._cmd}' is not found in PATH", code=2)
 
-    def _run(self, *args: tp.Any, what_happens: str, exit_on_error: bool = True) -> str:
-        self.exit_if_not_installed()
-        cmd = ["sudo", "-S", self._cmd, *map(str, args)]
+    @classmethod
+    def _run(cls, *args: tp.Any, what_happens: str, exit_on_error: bool = True) -> str:
+        cls.exit_if_not_installed()
+        cmd = ["sudo", "-S", cls._cmd, *map(str, args)]
         password = utils.get_sudo_pass(cmd, what_happens=what_happens)
         return utils.run_process(
             cmd,
@@ -177,13 +178,15 @@ class Nginx:
             input_=password,
         ).stdout
 
-    def test(self):
+    @classmethod
+    def test(cls):
         echo.info("Testing nginx configuration")
-        return self._run("-t", what_happens="Nginx configuration would be tested")
+        return cls._run("-t", what_happens="Nginx configuration would be tested")
 
-    def reload(self):
+    @classmethod
+    def reload(cls):
         echo.info("Reloading nginx configuration")
-        return self._run(
+        return cls._run(
             "-s", "reload", what_happens="Nginx configuration would be reloaded"
         )
 
@@ -399,8 +402,8 @@ class Ffmpeg:
 
     _cmd = "ffmpeg"
 
-    @functools.cache
     @classmethod
+    @functools.cache
     def exit_if_not_installed(cls):
         if shutil.which(cls._cmd) is None:
             raise Exit(f"'{cls._cmd}' is not found in PATH", code=2)
@@ -411,8 +414,8 @@ class Ffmpeg:
         cmd = [cls._cmd, *map(str, args)]
         return utils.run_process(cmd, **kwargs).stdout
 
-    @functools.cache
     @classmethod
+    @functools.cache
     def get_media_info(cls, path: Path) -> FfmpegMediaInfo:
         res = cls._run(
             "-i",
