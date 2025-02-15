@@ -325,6 +325,8 @@ class FfmpegMediaInfo:
             if len(lang) in (2, 3):
                 default_lang = lang
 
+        default_title = filename.stem.replace("_", " ").title()
+
         title: str = ""
         bitrate: str = ""
         duration: dt.timedelta = dt.timedelta()
@@ -367,6 +369,7 @@ class FfmpegMediaInfo:
                     echo.warning(f"{filename} | Cannot parse bitrate from line: {line}")
             if "Stream" in line:
                 if last_stream_info:
+                    last_stream_info.title = last_stream_info.title or default_title
                     streams.append(last_stream_info)
                 match = re.search(
                     r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(.*)",
@@ -395,11 +398,12 @@ class FfmpegMediaInfo:
                     )
 
         if last_stream_info:
+            last_stream_info.title = last_stream_info.title or default_title
             streams.append(last_stream_info)
 
         return cls(
             filename=filename.resolve(),
-            title=title or filename.stem.replace("_", " ").title(),
+            title=title or default_title,
             bitrate=bitrate,
             duration=duration,
             streams=streams,
