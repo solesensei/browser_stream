@@ -327,6 +327,8 @@ class FfmpegMediaInfo:
 
         for i, line in enumerate(lines):
             line = line.strip()
+            if "Estimating duration from bitrate" in line:
+                continue
             if "from" in line:
                 match = re.search(r"from '(.+)'", line)
                 if match:
