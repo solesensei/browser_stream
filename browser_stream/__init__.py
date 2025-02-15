@@ -279,7 +279,7 @@ class FfmpegStream:
     index: int
     type: tp.Literal["video", "audio", "subtitle"]
     codec: str
-    title: str | None = None
+    title: str = ""
     encoding_info: str | None = None
     language: str | None = None
 
@@ -325,7 +325,7 @@ class FfmpegMediaInfo:
             if len(lang) in (2, 3):
                 default_lang = lang
 
-        default_title = filename.stem.replace("_", " ").title()
+        default_title = filename.stem.replace("_", " ")
 
         title: str = ""
         bitrate: str = ""
@@ -944,9 +944,9 @@ def select_audio(
 
     echo.print("-" * 50)
     index, _ = utils.select_options_interactive(
-        [f"[{a.language}] {a.title} ({a.codec})" for a in audios]
+        [f"[{a.language or '-'}] {a.title} ({a.codec})" for a in audios]
         + [
-            f"{utils.bb('ext')} [{a.language}] {a.title} ({a.codec})"
+            f"{utils.bb('ext')} [{a.language or '-'}] {a.title} ({a.codec})"
             for _, a in external_audios
         ],
         option_name="Audio",
@@ -1068,9 +1068,9 @@ def select_subtitle(
     ):
         echo.print("-" * 50)
         index, _ = utils.select_options_interactive(
-            [f"[{s.language}] {s.title} ({s.codec})" for s in subtitles]
+            [f"[{s.language or '-'}] {s.title} ({s.codec})" for s in subtitles]
             + [
-                f"{utils.bb('ext')} [{s.language}] {s.title} ({s.codec})"
+                f"{utils.bb('ext')} [{s.language or '-'}] {s.title} ({s.codec})"
                 for _, s in external_subtitles
             ],
             option_name="Subtitle",
