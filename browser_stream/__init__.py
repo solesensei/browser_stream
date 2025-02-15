@@ -558,6 +558,55 @@ class Ffmpeg:
         )
         return output_file
 
+    def extract_audio_with_convert(
+        self,
+        media_file: Path,
+        stream_index: int,
+        audio_lang: str | None = None,
+        codec: str | None = None,
+        bitrate: str | None = None,
+    ) -> Path:
+        media_file_info = self.get_media_info(media_file)
+        audio = next(
+            (s for s in media_file_info.audios if s.index == stream_index), None
+        )
+        if audio is None:
+            audio_streams = [s.index for s in media_file_info.audios]
+            raise Exit(
+                f"Stream not found: {stream_index}. Available audio streams: {audio_streams}"
+            )
+        if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
+            echo.warning(f"Audio language mismatch: {audio.language} != {audio_lang}")
+        is_copy = code is None and bitrate is None
+        audio_lang = audio.language or audio_lang or "eng"
+        audio_codec = codec or audio.codec
+        echo.info(
+            f"Extracting audio: {audio.title} [{audio_lang}] from {media_file} {'(copy)' if is_copy else f'convert to {audio_codec}'}"
+        )
+        audio_file = media_file.with_suffix(f".{audio_lang}.{audio_codec}")
+        if audio_file.exists():
+            if utils.confirm(
+                f"Audio file already exists: {audio_file.name}. Do you want to overwrite it?"
+            ):
+                audio_file.unlink()
+            else:
+                return audio_file
+        cmd = [
+            "-i",
+            media_file,
+            "-map",
+            f"0:{stream_index}",
+        ]
+        if is_copy:
+            cmd.extend(["-c:a", "copy"])
+        else:
+            cmd.extend(["-c:a", audio_codec])
+            if bitrate:
+                cmd.extend(["-b:a", bitrate])
+        cmd.extend(["-y", audio_file])
+        self._run(*cmd, live_output=True)
+        return audio_file
+
     def convert_audio_to_aac(self, audio_file: Path) -> Path:
         echo.info(f"Converting audio file: {audio_file} to AAC format")
         output_file = audio_file.with_suffix(".aac")
@@ -769,7 +818,13 @@ def select_audio(
         if utils.confirm(
             f"Audio codec is not AAC: {selected_audio.codec}. Do you want to convert it?"
         ):
-            return ffmpeg.convert_audio_to_aac(media_file_info.filename)
+            return ffmpeg.extract_audio_with_convert(
+                media_file=media_file,
+                stream_index=selected_audio.index,
+                audio_lang=audio_lang,
+                codec="aac",
+                bitrate="192k",
+            )
     return selected_audio
 
 
