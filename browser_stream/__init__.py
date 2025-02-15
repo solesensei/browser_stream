@@ -834,7 +834,7 @@ def select_audio(
             return ffmpeg.extract_audio_with_convert(
                 media_file=media_file,
                 stream_index=selected_audio.index,
-                audio_lang=selected_audio.language,
+                audio_lang=selected_audio.language or audio_lang,
                 codec="aac",
                 bitrate="192k",
             ), selected_audio.language
