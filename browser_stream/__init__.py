@@ -316,10 +316,9 @@ class FfmpegMediaInfo:
         return [s for s in self.streams if s.type == "subtitle"]
 
     @classmethod
-    def parse(cls, output: str) -> "FfmpegMediaInfo":
+    def parse(cls, output: str, filename: Path) -> "FfmpegMediaInfo":
         lines = output.splitlines()
 
-        filename: Path = Path()
         title: str = ""
         bitrate: str = ""
         duration: dt.timedelta = dt.timedelta()
@@ -333,27 +332,31 @@ class FfmpegMediaInfo:
                 if match:
                     filename = Path(match.group(1))
                 else:
-                    echo.warning(f"Cannot parse filename from line: {line}")
+                    echo.warning(
+                        f"{filename} | Cannot parse filename from line: {line}"
+                    )
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
                 if match:
                     if match.group(1) != "N/A":
                         duration = utils.parse_duration(match.group(1))
                 else:
-                    echo.warning(f"Cannot parse duration from line: {line}")
+                    echo.warning(
+                        f"{filename} | Cannot parse duration from line: {line}"
+                    )
             if line.startswith("title") and last_stream_info is None:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
                     title = match.group(1)
                 else:
-                    echo.warning(f"Cannot parse title from line: {line}")
+                    echo.warning(f"{filename} | Cannot parse title from line: {line}")
             if "bitrate" in line:
                 match = re.search(r"bitrate:\s+(.+)", line)
                 if match:
                     if match.group(1) != "N/A":
                         bitrate = match.group(1)
                 else:
-                    echo.warning(f"Cannot parse bitrate from line: {line}")
+                    echo.warning(f"{filename} | Cannot parse bitrate from line: {line}")
             if "Stream" in line:
                 if last_stream_info:
                     streams.append(last_stream_info)
@@ -371,19 +374,23 @@ class FfmpegMediaInfo:
                         encoding_info=encoding_info.split(",", 1)[-1].strip(),
                     )
                 else:
-                    echo.warning(f"Cannot parse stream info from line: {line}")
+                    echo.warning(
+                        f"{filename} | Cannot parse stream info from line: {line}"
+                    )
             if line.startswith("title") and last_stream_info:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
                     last_stream_info.title = match.group(1)
                 else:
-                    echo.warning(f"Cannot parse stream title from line: {line}")
+                    echo.warning(
+                        f"{filename} | Cannot parse stream title from line: {line}"
+                    )
 
         if last_stream_info:
             streams.append(last_stream_info)
 
         return cls(
-            filename=filename,
+            filename=filename.resolve(),
             title=title,
             bitrate=bitrate,
             duration=duration,
@@ -417,13 +424,14 @@ class Ffmpeg:
     @classmethod
     @functools.cache
     def get_media_info(cls, path: Path) -> FfmpegMediaInfo:
+        path = path.resolve()
         res = cls._run(
             "-i",
-            path.resolve(),
+            path,
             "-hide_banner",
             exit_on_error=False,
         )
-        return FfmpegMediaInfo.parse(res)
+        return FfmpegMediaInfo.parse(res, path.relative_to(path.parent))
 
     @classmethod
     def print_media_info(cls, path: Path) -> FfmpegMediaInfo:
