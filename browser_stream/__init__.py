@@ -878,7 +878,7 @@ def select_video(
     raise Exit(f"Unsupported video file: {media_path}")
 
 
-def select_audio(
+def f(
     media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
@@ -1148,7 +1148,7 @@ def prepare_file_to_stream(
 
     output_file = (
         media_file.with_suffix(".mp4")
-        if fs.get_extension(media_file) != ".mp4"
+        if fs.get_extension(media_file) != "mp4"
         else media_file.with_suffix(".stream.mp4")
     )
 
@@ -1191,7 +1191,7 @@ def prepare_file_to_stream(
     if (
         subtitle_file
         and not burn_subtitles
-        and fs.get_extension(subtitle_file) != ".vtt"
+        and fs.get_extension(subtitle_file) != "vtt"
     ):
         vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
         if vtt_subtitle_file.exists():
