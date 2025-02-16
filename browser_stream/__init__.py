@@ -878,7 +878,7 @@ def select_video(
     raise Exit(f"Unsupported video file: {media_path}")
 
 
-def f(
+def select_audio(
     media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
