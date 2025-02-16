@@ -550,13 +550,19 @@ class Ffmpeg:
         """
         echo.info(f"Converting media file: {media_file} to MP4 format")
         self._assert_input_output_equal(media_file, output_file)
+        cur_index = 0
+        index_audio = index_subtitle = 1
         args = [
             "-i",
             media_file,
         ]
         if audio_file is not None:
+            index_audio = cur_index + 1
+            cur_index += 1
             args.extend(["-i", audio_file])
         if subtitle_file is not None and not burn_subtitles:
+            index_subtitle = cur_index + 1
+            cur_index += 1
             args.extend(["-i", subtitle_file])
         args.extend(
             [
@@ -567,7 +573,7 @@ class Ffmpeg:
             ]
         )
         if audio_file:
-            args.extend(["-map", "1:a:0", "-c:a", "copy"])
+            args.extend(["-map", f"{index_audio}:a:0", "-c:a", "copy"])
         elif audio_stream:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
         if audio_lang:
@@ -576,7 +582,7 @@ class Ffmpeg:
             if burn_subtitles:
                 args.extend(["-vf", f"subtitles={subtitle_file}"])
             else:
-                args.extend(["-map", "1:0", "-c:s", "mov_text"])
+                args.extend(["-map", f"{index_subtitle}:0", "-c:s", "mov_text"])
             if subtitle_lang:
                 args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
         args.extend(["-y", output_file])
