@@ -1018,6 +1018,7 @@ def select_subtitle(
             echo.warning(
                 f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}. Using subtitle file"
             )
+        return subtitle_file, subtitle.language
 
     external_subtitle_files = list(fs.get_subtitle_files(media_file.parent))
     if len(external_subtitle_files) > 20:
