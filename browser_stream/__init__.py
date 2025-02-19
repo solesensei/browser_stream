@@ -916,7 +916,6 @@ def select_audio(
             )
         return audio_file, audio.language
 
-
     external_audio_files = list(fs.get_audio_files(media_file.parent))
     external_audio_files = [
         f for f in external_audio_files if f.stem == media_file.stem
@@ -942,12 +941,6 @@ def select_audio(
         ]
         if not matched_internal_audios and not matched_external_audios:
             echo.warning(f"No audio found for language: {audio_lang}")
-        elif len(matched_internal_audios) == 1 and not matched_external_audios:
-            echo.info(f"Selected audio: {matched_internal_audios[0].title}")
-            return matched_internal_audios[0], matched_internal_audios[0].language
-        elif len(matched_external_audios) == 1 and not matched_internal_audios:
-            echo.info(f"Selected external audio: {matched_external_audios[0][1].title}")
-            return matched_external_audios[0][0], matched_external_audios[0][1].language
         else:
             audios = matched_internal_audios
             external_audios = matched_external_audios
