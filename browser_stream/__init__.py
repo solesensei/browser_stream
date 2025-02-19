@@ -666,6 +666,7 @@ class Ffmpeg:
         audio_file: Path,
         audio_lang: str | None = None,
         codec: str = config.BROWSER_AUDIO_CODEC,
+        bitrate: str = config.BROWSER_AUDIO_BITRATE,
     ) -> Path:
         echo.info(f"Converting audio file: {audio_file} to {codec.upper()} format")
         media_info = self.get_media_info(audio_file)
@@ -678,7 +679,7 @@ class Ffmpeg:
             "-c:a",
             codec,
             "-b:a",
-            "192k",
+            bitrate,
             "-metadata:s:a:0",
             f"language={audio_lang}",
             "-y",
@@ -998,7 +999,7 @@ def select_audio(
                 stream_index=audio_media_stream_selected.index,
                 audio_lang=audio_media_stream_selected.language or audio_lang,
                 codec=config.BROWSER_AUDIO_CODEC,
-                bitrate="192k",
+                bitrate=config.BROWSER_AUDIO_BITRATE,
             ), audio_media_stream_selected.language
         return audio_media_stream_selected, audio_media_stream_selected.language
     if external_audio_file and audio_external_stream_selected:
