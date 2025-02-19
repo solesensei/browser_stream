@@ -598,8 +598,6 @@ class Ffmpeg:
         media_info = self.get_media_info(subtitle_file)
         subtitle_lang = subtitle_lang or media_info.subtitles[0].language or "eng"
         self._run(
-            "-sub_charenc",
-            "UTF-8",
             "-i",
             subtitle_file,
             "-c:s",
@@ -835,9 +833,24 @@ class FS:
             path.unlink()
 
     @staticmethod
-    def read_file(path: Path) -> str:
-        with path.open() as f:
+    def read_file(path: Path, **kwargs) -> str:
+        with path.open(**kwargs) as f:
             return f.read()
+
+    @classmethod
+    def enforce_utf8(cls, filename: Path) -> Path:
+        """Check encoding of file and convert it to UTF-8 if needed"""
+        encoding = utils.detect_encoding(filename)
+        if encoding == "utf-8":
+            return filename
+        output_file = filename.with_suffix(f".utf8{filename.suffix}")
+        echo.info(
+            f"Converting file {filename.name} encoding to UTF-8: {output_file.name}"
+        )
+        content = cls.read_file(filename, encoding=encoding)
+        with output_file.open("w", encoding="utf-8") as f:
+            f.write(content)
+        return output_file
 
 
 def build_stream_url_nginx(
@@ -1211,6 +1224,7 @@ def prepare_file_to_stream(
         elif utils.confirm(
             f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
+            subtitle_file = fs.enforce_utf8(subtitle_file)
             subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
 
     return StreamMedia(

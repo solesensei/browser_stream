@@ -3,6 +3,7 @@ import typer
 import typing as tp
 import functools
 import urllib.parse
+import chardet
 import click
 import textwrap
 from pathlib import Path
@@ -133,6 +134,15 @@ def _get_sudo_password() -> str:
 @functools.cache
 def print_sudo_warning() -> None:
     echo.printc("This command requires sudo access", color="yellow")
+
+
+def detect_encoding(file_path: Path) -> str:
+    with open(file_path, "rb") as f:
+        result = chardet.detect(f.read())
+    encoding = result["encoding"]
+    if encoding is None:
+        raise ValueError(f"Could not detect encoding for {file_path}")
+    return encoding
 
 
 def get_sudo_pass(for_which_command: list[str], what_happens: str) -> str:
