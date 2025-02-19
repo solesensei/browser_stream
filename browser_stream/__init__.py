@@ -916,7 +916,11 @@ def select_audio(
             )
         return audio_file, audio.language
 
+
     external_audio_files = list(fs.get_audio_files(media_file.parent))
+    external_audio_files = [
+        f for f in external_audio_files if f.stem == media_file.stem
+    ] or external_audio_files
     if len(external_audio_files) > 10:
         echo.warning(
             f"Found {len(external_audio_files)} audio files in {media_file.parent.name}. Showing only first 10"
@@ -1021,6 +1025,9 @@ def select_subtitle(
         return subtitle_file, subtitle.language
 
     external_subtitle_files = list(fs.get_subtitle_files(media_file.parent))
+    external_subtitle_files = [
+        f for f in external_subtitle_files if f.stem == media_file.stem
+    ] or external_subtitle_files
     if len(external_subtitle_files) > 20:
         echo.warning(
             f"Found {len(external_subtitle_files)} subtitle files in {media_file.parent.name}. Showing only first 20"
