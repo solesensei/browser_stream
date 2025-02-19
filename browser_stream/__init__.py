@@ -1282,6 +1282,8 @@ def stream_nginx(
             f"Media file must be in media directory: {conf.media_dir}",
             param_hint="--media",
         )
+    if media.suffix == ".html":
+        raise typer.BadParameter("HTML can't be used directly, use video file")
 
     if conf.nginx_allow_index:
         echo.warning(
