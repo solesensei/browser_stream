@@ -598,6 +598,8 @@ class Ffmpeg:
         media_info = self.get_media_info(subtitle_file)
         subtitle_lang = subtitle_lang or media_info.subtitles[0].language or "eng"
         self._run(
+            "-sub_charenc",
+            "UTF-8",
             "-i",
             subtitle_file,
             "-c:s",
