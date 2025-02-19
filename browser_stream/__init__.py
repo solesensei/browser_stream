@@ -1224,8 +1224,9 @@ def prepare_file_to_stream(
         elif utils.confirm(
             f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
-            subtitle_file = fs.enforce_utf8(subtitle_file)
-            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
+            subtitle_file = ffmpeg.convert_subtitle_to_vtt(
+                fs.enforce_utf8(subtitle_file), subtitle_lang
+            )
 
     return StreamMedia(
         path=media_file,
