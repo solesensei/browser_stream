@@ -1217,10 +1217,15 @@ def prepare_file_to_stream(
     ):
         vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
         if vtt_subtitle_file.exists():
-            echo.info(
-                f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it for streaming"
-            )
-            subtitle_file = vtt_subtitle_file
+            if utils.confirm(
+                f"VTT subtitle file already exists: {vtt_subtitle_file}. Do you want to overwrite it?"
+            ):
+                vtt_subtitle_file.unlink()
+            else:
+                echo.info(
+                    f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it for streaming"
+                )
+                subtitle_file = vtt_subtitle_file
         elif utils.confirm(
             f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
