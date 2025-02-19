@@ -868,7 +868,7 @@ def select_video(
 ) -> Path:
     fs = FS()
     if media_path.is_dir():
-        video_files = list(fs.get_video_files(media_path, recursive_depth=0))
+        video_files = sorted(fs.get_video_files(media_path, recursive_depth=0))
         if not video_files:
             raise Exit(
                 f"No video files found in directory: {media_path}. Check your media directory"
@@ -916,7 +916,7 @@ def select_audio(
             )
         return audio_file, audio.language
 
-    external_audio_files = list(fs.get_audio_files(media_file.parent))
+    external_audio_files = sorted(fs.get_audio_files(media_file.parent))
     external_audio_files = [
         f for f in external_audio_files if f.stem == media_file.stem
     ] or external_audio_files
@@ -949,8 +949,8 @@ def select_audio(
     index, _ = utils.select_options_interactive(
         [f"[{a.language or '-'}] {a.title} ({a.codec})" for a in audios]
         + [
-            f"{utils.bb('ext')} [{a.language or '-'}] {a.title} ({a.codec})"
-            for _, a in external_audios
+            f"{utils.bb('ext')} [{a.language or '-'}] {f.parent.name} / {a.title} ({a.codec})"
+            for f, a in external_audios
         ],
         option_name="Audio",
         message="Select audio stream",
@@ -1017,7 +1017,7 @@ def select_subtitle(
             )
         return subtitle_file, subtitle.language
 
-    external_subtitle_files = list(fs.get_subtitle_files(media_file.parent))
+    external_subtitle_files = sorted(fs.get_subtitle_files(media_file.parent))
     external_subtitle_files = [
         f for f in external_subtitle_files if f.stem == media_file.stem
     ] or external_subtitle_files
@@ -1064,14 +1064,14 @@ def select_subtitle(
     if (
         media_stream_subtitle is None
         and (subtitles or external_subtitles)
-        and utils.confirm("Do you want to select subtitle stream?")
+        and utils.confirm("Do you want to select subtitles?")
     ):
         echo.print("-" * 50)
         index, _ = utils.select_options_interactive(
             [f"[{s.language or '-'}] {s.title} ({s.codec})" for s in subtitles]
             + [
-                f"{utils.bb('ext')} [{s.language or '-'}] {s.title} ({s.codec})"
-                for _, s in external_subtitles
+                f"{utils.bb('ext')} [{s.language or '-'}] {f.parent.name} / {s.title} ({s.codec})"
+                for f, s in external_subtitles
             ],
             option_name="Subtitle",
             message="Select subtitle stream",
