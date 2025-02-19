@@ -1283,7 +1283,9 @@ def stream_nginx(
             param_hint="--media",
         )
     if media.suffix == ".html":
-        raise typer.BadParameter("HTML can't be used directly, use video file")
+        raise typer.BadParameter(
+            "HTML can't be used directly, use video file", param_hint="--media"
+        )
 
     if conf.nginx_allow_index:
         echo.warning(
