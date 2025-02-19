@@ -380,7 +380,7 @@ class FfmpegMediaInfo:
                     last_stream_info = FfmpegStream(
                         index=int(index),
                         type=type_.lower(),  # type: ignore
-                        codec=codec,
+                        codec=codec.lower().strip(),
                         language=lang or default_lang,
                         encoding_info=encoding_info.split(",", 1)[-1].strip(),
                     )
@@ -661,21 +661,22 @@ class Ffmpeg:
         self._run(*cmd, live_output=True)
         return audio_file
 
-    def convert_audio_to_aac(
+    def convert_audio(
         self,
         audio_file: Path,
         audio_lang: str | None = None,
+        codec: str = config.BROWSER_AUDIO_CODEC,
     ) -> Path:
-        echo.info(f"Converting audio file: {audio_file} to AAC format")
+        echo.info(f"Converting audio file: {audio_file} to {codec.upper()} format")
         media_info = self.get_media_info(audio_file)
         audio_lang = audio_lang or media_info.audios[0].language or "eng"
-        output_file = audio_file.with_suffix(f".{audio_lang}.aac")
+        output_file = audio_file.with_suffix(f".{audio_lang}.{codec}")
         self._assert_input_output_equal(audio_file, output_file)
         self._run(
             "-i",
             audio_file,
             "-c:a",
-            "aac",
+            codec,
             "-b:a",
             "192k",
             "-metadata:s:a:0",
@@ -914,16 +915,18 @@ def select_audio(
         audio_file_info = ffmpeg.get_media_info(audio_file)
         audio = audio_file_info.audios[0]
 
-        if audio.codec not in config.BROWSER_AUDIO_CODECS:
-            audio_file_aac = audio_file.with_suffix(".aac")
+        if audio.codec != config.BROWSER_AUDIO_CODEC:
+            audio_file_aac = audio_file.with_suffix(f".{config.BROWSER_AUDIO_CODEC}")
             if audio_file_aac.exists() and utils.confirm(
-                f"AAC audio file already exists: {audio_file_aac}. Do you want to use it (n – overwrite)?"
+                f"{config.BROWSER_AUDIO_CODEC.upper()} audio file already exists: {audio_file_aac}. Do you want to use it (n – overwrite)?"
             ):
                 return audio_file_aac, audio.language
             if utils.confirm(
-                f"Audio codec is not AAC: {audio.codec} (supported in browsers). Do you want to convert it?"
+                f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio.codec} (supported in browsers). Do you want to convert it?"
             ):
-                audio_file = ffmpeg.convert_audio_to_aac(audio_file, audio.language)
+                audio_file = ffmpeg.convert_audio(
+                    audio_file, audio.language, codec=config.BROWSER_AUDIO_CODEC
+                )
 
         if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
             echo.warning(
@@ -975,33 +978,42 @@ def select_audio(
         external_audios[index - len(audios)] if index >= len(audios) else (None, None)
     )
     if audio_media_stream_selected:
-        audio_aac = media_file.with_suffix(".aac")
+        audio_aac = media_file.with_suffix(f".{config.BROWSER_AUDIO_CODEC}")
         if audio_aac.exists() and utils.confirm(
-            f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
+            f"{config.BROWSER_AUDIO_CODEC.upper()} audio file already exists: {audio_aac.name}. Do you want to use it?"
         ):
             return audio_aac, audio_media_stream_selected.language
-        if utils.confirm(
-            f"Audio codec is not AAC: {audio_media_stream_selected.codec}. Do you want to convert it?"
+
+        if audio_media_stream_selected.codec != config.BROWSER_AUDIO_CODEC:
+            return ffmpeg.extract_audio_with_convert(
+                media_file=media_file,
+                stream_index=audio_media_stream_selected.index,
+                audio_lang=audio_media_stream_selected.language or audio_lang,
+            ), audio_media_stream_selected.language
+        elif utils.confirm(
+            f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio_media_stream_selected.codec}. Do you want to convert it?"
         ):
             return ffmpeg.extract_audio_with_convert(
                 media_file=media_file,
                 stream_index=audio_media_stream_selected.index,
                 audio_lang=audio_media_stream_selected.language or audio_lang,
-                codec="aac",
+                codec=config.BROWSER_AUDIO_CODEC,
                 bitrate="192k",
             ), audio_media_stream_selected.language
         return audio_media_stream_selected, audio_media_stream_selected.language
     if external_audio_file and audio_external_stream_selected:
-        audio_aac = external_audio_file.with_suffix(".aac")
+        audio_aac = external_audio_file.with_suffix(f".{config.BROWSER_AUDIO_CODEC}")
         if audio_aac.exists() and utils.confirm(
-            f"AAC audio file already exists: {audio_aac.name}. Do you want to use it?"
+            f"{config.BROWSER_AUDIO_CODEC.upper()} audio file already exists: {audio_aac.name}. Do you want to use it?"
         ):
             return audio_aac, audio_external_stream_selected.language
         if utils.confirm(
-            f"Audio codec is not AAC: {audio_external_stream_selected.codec}. Do you want to convert it?"
+            f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio_external_stream_selected.codec}. Do you want to convert it?"
         ):
-            return ffmpeg.convert_audio_to_aac(
-                external_audio_file, audio_external_stream_selected.language
+            return ffmpeg.convert_audio(
+                external_audio_file,
+                audio_external_stream_selected.language,
+                codec=config.BROWSER_AUDIO_CODEC,
             ), audio_external_stream_selected.language
         return audio_external_stream_selected, audio_external_stream_selected.language
     raise Exit("Audio file not found")
