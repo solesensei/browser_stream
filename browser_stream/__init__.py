@@ -1239,6 +1239,7 @@ def stream_nginx(
     """
     Check Nginx configuration, convert file and prints the URL to stream media file
     """
+    echo.info("Prepare media file to stream with Nginx")
     fs = FS()
     nginx = Nginx()
     ffmpeg = Ffmpeg()
@@ -1315,6 +1316,7 @@ def stream_plex(
     """
     Check file exists on Plex server, convert file and prints the URL to stream media file
     """
+    echo.info("Prepare media file to stream with Plex")
     fs = FS()
     ffmpeg = Ffmpeg()
     html = HTML()

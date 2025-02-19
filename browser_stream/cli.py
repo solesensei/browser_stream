@@ -250,7 +250,7 @@ def stream_command(
     ),
     with_nginx: bool = typer.Option(
         False,
-        help="Stream media file using Nginx server",
+        help="Stream media file using Nginx server (default)",
         show_default=False,
     ),
     with_plex: bool = typer.Option(
@@ -275,11 +275,8 @@ def stream_command(
             "Only one of --with-nginx or --with-plex can be enabled",
             param_hint="--with-nginx or --with-plex",
         )
-    elif not with_nginx and not with_plex:
-        raise typer.BadParameter(
-            "At least one of --with-nginx or --with-plex must be enabled",
-            param_hint="--with-nginx or --with-plex",
-        )
+    if not with_nginx and not with_plex:
+        with_nginx = True
     media = (media or utils.prompt_path("Enter path to media file")).resolve()
     if with_nginx:
         stream_nginx(
