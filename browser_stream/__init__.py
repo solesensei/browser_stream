@@ -1215,6 +1215,7 @@ def prepare_file_to_stream(
         and not burn_subtitles
         and fs.get_extension(subtitle_file) != "vtt"
     ):
+        subtitle_file = fs.enforce_utf8(subtitle_file)
         vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
         if vtt_subtitle_file.exists() and utils.confirm(
             f"VTT subtitle file already exists: {vtt_subtitle_file.name}. Do you want to use it?"
@@ -1226,9 +1227,7 @@ def prepare_file_to_stream(
         elif utils.confirm(
             f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
         ):
-            subtitle_file = ffmpeg.convert_subtitle_to_vtt(
-                fs.enforce_utf8(subtitle_file), subtitle_lang
-            )
+            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
 
     return StreamMedia(
         path=media_file,
