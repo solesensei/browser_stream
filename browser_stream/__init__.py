@@ -554,10 +554,13 @@ def stream_nginx(
         typer.style("URL: ", bold=True)
         + typer.style(build_stream_url_nginx(media), fg="blue", bold=True)
     )
-    echo.printc(
-        "\nDo not forget to update token with `browser-streamer nginx --update-token`",
-        bold=True,
-        color="yellow",
+    echo.print(
+        typer.style(
+            "\nDo not forget to update token with `browser-streamer nginx --update-token`",
+            bold=True,
+            fg="yellow",
+        )
+        + typer.style(" (after streaming media file)", fg=typer.colors.BLACK)
     )
 
 
