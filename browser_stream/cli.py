@@ -120,10 +120,16 @@ def nginx_command(
         return
 
     if not ipv6 and not ipv4:
-        raise typer.BadParameter(
-            "At least one of --ipv6 or --ipv4 must be enabled",
-            param_hint="--ipv6 or --ipv4",
+        res = utils.select_options_interactive(
+            option_name="Which protocols to enable in Nginx configuration?",
+            options=["IPv6", "IPv4", "Both"],
         )
+        ipv6 = "IPv6" in res or "Both" in res
+        ipv4 = "IPv4" in res or "Both" in res
+
+    if ssl and not domain_name:
+        echo.info("SSL `--ssl` is enabled, domain name is required")
+        domain_name = utils.prompt("Enter domain name for SSL certificate")
 
     if update_token or not conf.nginx_secret:
         echo.info("Generating new X-Token")
