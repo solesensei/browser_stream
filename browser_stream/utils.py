@@ -261,4 +261,6 @@ class Config:
             json.dump(d, file, indent=4)
 
     def to_dict(self) -> dict:
-        return dataclasses.asdict(self)
+        d = dataclasses.asdict(self)
+        d["media_dir"] = d["media_dir"].as_posix() if d["media_dir"] else None
+        return d
