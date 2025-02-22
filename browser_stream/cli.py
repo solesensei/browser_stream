@@ -51,8 +51,13 @@ app.add_typer(media_app)
 
 
 @app.command("config")
-def config_command():
-    """Show configuration"""
+def config_command(reset: bool = typer.Option(False, help="Reset configuration")):
+    """Show and reset configuration"""
+    if reset:
+        fs = FS()
+        fs.remove_file(Path(config.CONFIG_PATH))
+        echo.info("Configuration reset complete")
+        return
     echo.info(f"Config path: {config.CONFIG_PATH}")
     echo.print_json(conf.to_dict())
 
