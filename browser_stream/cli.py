@@ -34,7 +34,7 @@ app = typer.Typer(
 )
 setup_app = typer.Typer(
     name="setup",
-    help="Setup browser-streamer",
+    help="Setup server (Nginx / Plex)",
     context_settings=config.CONTEXT_SETTINGS,
     pretty_exceptions_enable=config.PRETTY_EXCEPTIONS,
     rich_markup_mode="rich",
