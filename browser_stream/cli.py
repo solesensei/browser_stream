@@ -97,9 +97,9 @@ def nginx_command(
     ),
 ):
     """Nginx configuration"""
-    media_dir = (
+    media_dir = utils.resolve_path_pwd(
         media_dir or utils.prompt_path("Enter path to media directory")
-    ).resolve()
+    )
 
     fs = FS()
     nginx = Nginx()
@@ -277,7 +277,9 @@ def stream_command(
         )
     if not with_nginx and not with_plex:
         with_nginx = True
-    media = (media or utils.prompt_path("Enter path to media file")).resolve()
+    media = utils.resolve_path_pwd(
+        media or utils.prompt_path("Enter path to media file")
+    )
     if with_nginx:
         stream_nginx(
             media=media,

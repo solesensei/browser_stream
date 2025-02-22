@@ -3,6 +3,7 @@ import typer
 import typing as tp
 import functools
 import urllib.parse
+import os
 import chardet
 import click
 import textwrap
@@ -28,6 +29,18 @@ def prompt(message: str, **kwargs) -> str:
 
 def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
+
+
+def resolve_path_pwd(path: Path) -> Path:
+    """Resolve path with PWD (shell) if it's relative
+
+    NB! PWD (shell) can be different from the script's directory"""
+    path = path.expanduser()
+    if path.is_absolute():
+        return path
+    pwd = Path(os.environ.get("PWD", Path.cwd()))
+    resolved_path = pwd / path
+    return Path(os.path.normpath(resolved_path))
 
 
 def prompt_path(message: str, exists: bool = True) -> Path:
@@ -185,7 +198,7 @@ class Config:
 
     @classmethod
     def load(cls, path: Path = Path(config.CONFIG_PATH)) -> "Config":
-        path = path.resolve()
+        path = resolve_path_pwd(path)
         if not path.exists():
             return Config()
         echo.debug(f"Loading configuration from {path}")
@@ -195,7 +208,7 @@ class Config:
         return Config(**data)
 
     def save(self, path: Path = Path(config.CONFIG_PATH)) -> None:
-        path = path.resolve()
+        path = resolve_path_pwd(path)
         echo.debug(f"Saving configuration to {path}")
         if not path.parent.exists():
             path.parent.mkdir(parents=True)

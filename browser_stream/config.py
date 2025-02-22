@@ -42,6 +42,7 @@ AUDIO_EXTENSIONS = {
     "mka",
 }
 SUBTITLE_EXTENSIONS = {"srt", "ssa", "ass", "vtt"}
+FS_MAX_DIRS = int(os.getenv("FS_MAX_DIRS", "10"))
 
 # Constants
 CONFIG_PATH = os.path.expanduser("~/.browser_stream/config.json")
