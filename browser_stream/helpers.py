@@ -483,11 +483,13 @@ class Ffmpeg:
             echo.warning(
                 f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}"
             )
-        subtitle_lang = subtitle.language or subtitle_lang or "eng"
+        subtitle_lang = (
+            subtitle.language or subtitle_lang or utils.prompt_subtitles(subtitle)
+        ).lower()[:3]
         echo.info(
             f"Extracting subtitle: {subtitle.title} [{subtitle_lang}] from {media_file}"
         )
-        subtitle_file = media_file.with_suffix(f".{subtitle_lang}.{subtitle.codec}")
+        subtitle_file = media_file.with_suffix(f".{subtitle_lang[:2]}.{subtitle.codec}")
         if subtitle_file.exists():
             if utils.confirm(
                 f"Subtitle file already exists: {subtitle_file.name}. Do you want to overwrite it?"
@@ -518,7 +520,7 @@ class Ffmpeg:
         self,
         media_file: Path,
         output_file: Path,
-        audio_lang: str | None = None,
+        audio_lang: str,
         audio_file: Path | None = None,
         audio_stream: int | None = None,
         subtitle_file: Path | None = None,
@@ -566,14 +568,31 @@ class Ffmpeg:
         elif audio_stream:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
         if audio_lang:
-            args.extend(["-metadata:s:a:0", f"language={audio_lang}"])
+            args.extend(["-metadata:s:a:0", f"language={audio_lang.lower()[:3]}"])
         if subtitle_file:
+            subtitle_lang = (
+                subtitle_lang or utils.prompt_subtitles(subtitle_file)
+            ).lower()[:3]
             if burn_subtitles:
-                args.extend(["-vf", f"subtitles={subtitle_file}"])
+                args.extend(
+                    [
+                        "-vf",
+                        f"subtitles={subtitle_file}",
+                        "-metadata",
+                        f"subtitles-burned-in=lang:{subtitle_lang}",
+                    ]
+                )
             else:
-                args.extend(["-map", f"{index_subtitle}:0", "-c:s", "mov_text"])
-            if subtitle_lang:
-                args.extend(["-metadata:s:s:0", f"language={subtitle_lang}"])
+                args.extend(
+                    [
+                        "-map",
+                        f"{index_subtitle}:0",
+                        "-c:s",
+                        "mov_text",
+                        "-metadata:s:s:0",
+                        f"language={subtitle_lang}",
+                    ]
+                )
         args.extend(["-y", output_file])
         self._run(*args, live_output=True)
         return output_file
@@ -585,7 +604,11 @@ class Ffmpeg:
         output_file = subtitle_file.with_suffix(".vtt")
         self._assert_input_output_equal(subtitle_file, output_file)
         media_info = self.get_media_info(subtitle_file)
-        subtitle_lang = subtitle_lang or media_info.subtitles[0].language or "eng"
+        subtitle_lang = (
+            subtitle_lang
+            or media_info.subtitles[0].language
+            or utils.prompt_subtitles(media_info.subtitles[0])
+        ).lower()[:3]
         self._run(
             "-i",
             subtitle_file,
@@ -603,6 +626,7 @@ class Ffmpeg:
         self,
         media_file: Path,
         stream_index: int,
+        output_file: Path,
         audio_lang: str | None = None,
         codec: str | None = None,
         bitrate: str | None = None,
@@ -619,12 +643,14 @@ class Ffmpeg:
         if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
             echo.warning(f"Audio language mismatch: {audio.language} != {audio_lang}")
         is_copy = codec is None and bitrate is None
-        audio_lang = audio.language or audio_lang or "eng"
+        audio_lang = (
+            audio.language or audio_lang or utils.prompt_audio(audio)
+        ).lower()[:3]
         audio_codec = codec or audio.codec
         echo.info(
             f"Extracting audio: {audio.title} [{audio_lang}] from {media_file} {'(copy)' if is_copy else f'convert to {audio_codec}'}"
         )
-        audio_file = media_file.with_suffix(f".{audio_lang}.{audio_codec}")
+        audio_file = output_file
         if audio_file.exists():
             if utils.confirm(
                 f"Audio file already exists: {audio_file.name}. Do you want to overwrite it?"
@@ -653,15 +679,18 @@ class Ffmpeg:
     def convert_audio(
         self,
         audio_file: Path,
+        output_file: Path,
         audio_lang: str | None = None,
-        output_file: Path | None = None,
         codec: str = config.BROWSER_AUDIO_CODEC,
         bitrate: str = config.BROWSER_AUDIO_BITRATE,
     ) -> Path:
         echo.info(f"Converting audio file: {audio_file} to {codec.upper()} format")
         media_info = self.get_media_info(audio_file)
-        audio_lang = audio_lang or media_info.audios[0].language or "eng"
-        output_file = output_file or audio_file.with_suffix(f".{audio_lang}.{codec}")
+        audio_lang = (
+            audio_lang
+            or media_info.audios[0].language
+            or utils.prompt_audio(media_info.audios[0])
+        ).lower()[:3]
         self._assert_input_output_equal(audio_file, output_file)
         self._run(
             "-i",

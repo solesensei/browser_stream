@@ -16,6 +16,10 @@ import subprocess
 import dataclasses
 
 
+if tp.TYPE_CHECKING:
+    from browser_stream.helpers import FfmpegStream
+
+
 T = tp.TypeVar("T")
 
 
@@ -29,6 +33,26 @@ def prompt(message: str, **kwargs) -> str:
 
 def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
+
+
+def prompt_audio(audio: Path | FfmpegStream) -> str:
+    if isinstance(audio, Path):
+        return prompt(
+            f"Enter language for audio file: {audio.name} (eng, esp, ...)"
+        ).lower()
+    if audio.language:
+        return audio.language.lower()
+    return prompt(f"Enter language for audio: {audio} (eng, esp, ...)").lower()
+
+
+def prompt_subtitles(subtitles: Path | FfmpegStream) -> str:
+    if isinstance(subtitles, Path):
+        return prompt(
+            f"Enter language for subtitles file: {subtitles.name} (eng, esp, ...)"
+        ).lower()
+    if subtitles.language:
+        return subtitles.language.lower()
+    return prompt(f"Enter language for subtitles: {subtitles} (eng, esp, ...)").lower()
 
 
 def resolve_path_pwd(path: Path) -> Path:
