@@ -567,10 +567,14 @@ class Ffmpeg:
             index_audio = cur_index + 1
             cur_index += 1
             args.extend(["-i", audio_file])
-        if subtitle_file is not None and not burn_subtitles:
-            index_subtitle = cur_index + 1
-            cur_index += 1
-            args.extend(["-i", subtitle_file])
+        if subtitle_file is not None:
+            if not burn_subtitles:
+                index_subtitle = cur_index + 1
+                cur_index += 1
+                args.extend(["-i", subtitle_file])
+            subtitle_lang = (
+                subtitle_lang or utils.prompt_subtitles(subtitle_file)
+            ).lower()[:3]
         args.extend(
             [
                 "-map",
@@ -586,6 +590,10 @@ class Ffmpeg:
                     config.FFPEG_ENCODE_CRF,
                     "-preset",
                     config.FFPEG_ENCODE_PRESET,
+                    "-vf",
+                    f"subtitles={subtitle_file}",
+                    "-metadata",
+                    f"comment=burned-subs-lang:{subtitle_lang}",
                 ]
             )
         else:  # then copy video stream
@@ -601,30 +609,17 @@ class Ffmpeg:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang.lower()[:3]}"])
-        if subtitle_file:
-            subtitle_lang = (
-                subtitle_lang or utils.prompt_subtitles(subtitle_file)
-            ).lower()[:3]
-            if burn_subtitles:
-                args.extend(
-                    [
-                        "-vf",
-                        f"subtitles={subtitle_file}",
-                        "-metadata",
-                        f"comment=burned-subs-lang:{subtitle_lang}",
-                    ]
-                )
-            else:
-                args.extend(
-                    [
-                        "-map",
-                        f"{index_subtitle}:0",
-                        "-c:s",
-                        "mov_text",
-                        "-metadata:s:s:0",
-                        f"language={subtitle_lang}",
-                    ]
-                )
+        if subtitle_file and not burn_subtitles:
+            args.extend(
+                [
+                    "-map",
+                    f"{index_subtitle}:0",
+                    "-c:s",
+                    "mov_text",
+                    "-metadata:s:s:0",
+                    f"language={subtitle_lang}",
+                ]
+            )
         args.extend(["-y", output_file])
         self._run(*args, live_output=True)
         return output_file
