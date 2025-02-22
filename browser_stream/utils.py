@@ -35,7 +35,7 @@ def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
 
 
-def prompt_audio(audio: Path | FfmpegStream) -> str:
+def prompt_audio(audio: "Path | FfmpegStream") -> str:
     if isinstance(audio, Path):
         return prompt(
             f"Enter language for audio file: {audio.name} (eng, esp, ...)"
@@ -45,7 +45,7 @@ def prompt_audio(audio: Path | FfmpegStream) -> str:
     return prompt(f"Enter language for audio: {audio} (eng, esp, ...)").lower()
 
 
-def prompt_subtitles(subtitles: Path | FfmpegStream) -> str:
+def prompt_subtitles(subtitles: "Path | FfmpegStream") -> str:
     if isinstance(subtitles, Path):
         return prompt(
             f"Enter language for subtitles file: {subtitles.name} (eng, esp, ...)"

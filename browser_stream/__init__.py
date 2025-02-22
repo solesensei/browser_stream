@@ -4,7 +4,15 @@ import dataclasses
 import typer
 
 import browser_stream.utils as utils
-from browser_stream.helpers import FS, Ffmpeg, PlexAPI, Nginx, HTML, FfmpegStream, Exit
+from browser_stream.helpers import (
+    FS,
+    Ffmpeg,
+    PlexAPI,
+    Nginx,
+    HTML,
+    FfmpegStream,
+    Exit,
+)
 import browser_stream.config as config
 from browser_stream.echo import echo
 
