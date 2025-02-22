@@ -507,7 +507,7 @@ def stream_nginx(
         )
     if not media.as_posix().startswith(conf.media_dir.as_posix()):
         raise typer.BadParameter(
-            f"Media file must be in media directory: {conf.media_dir}",
+            f"Media file must be in media directory: {conf.media_dir}. Found: {media.as_posix()}",
             param_hint="--media",
         )
     if media.suffix == ".html":
@@ -562,6 +562,14 @@ def stream_nginx(
         )
         + typer.style(" (after streaming media file)", fg=typer.colors.BLACK)
     )
+    if conf.nginx_allow_index:
+        echo.warning(
+            "Directory listing is enabled in Nginx configuration (allow_index=true). That means anyone can navigate through your media files"
+        )
+        echo.printc(
+            "Disable directory listing with `browser-streamer nginx --no-allow-index`",
+            fg="red",
+        )
 
 
 def stream_plex(
