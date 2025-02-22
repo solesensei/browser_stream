@@ -428,7 +428,7 @@ def prepare_file_to_stream(
     )
 
     if matched_media:
-        echo.info(f"Using existing media stream file: {matched_media.name}")
+        echo.info(f"Found matched media file: {matched_media.name}")
         media_file = matched_media
     elif not output_file.exists() or utils.confirm(
         f"File already exists: {output_file.name}, do you want to overwrite it?"
