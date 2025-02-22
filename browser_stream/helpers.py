@@ -575,10 +575,26 @@ class Ffmpeg:
             [
                 "-map",
                 "0:v:0",
-                "-c:v",
-                "copy",
             ]
         )
+        if burn_subtitles and subtitle_file:
+            args.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-crf",
+                    config.FFPEG_ENCODE_CRF,
+                    "-preset",
+                    config.FFPEG_ENCODE_PRESET,
+                ]
+            )
+        else:  # then copy video stream
+            args.extend(
+                [
+                    "-c:v",
+                    "copy",
+                ]
+            )
         if audio_file:
             args.extend(["-map", f"{index_audio}:a:0", "-c:a", "copy"])
         elif audio_stream:
