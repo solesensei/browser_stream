@@ -58,11 +58,11 @@ def prompt_subtitles(subtitles: "Path | FfmpegStream") -> str:
 def get_file_path(
     path: Path,
     codec: str,
-    language: str | None = None,
+    language: str,
     suffix: str = "stream",
 ) -> Path:
     """abcd.eng.stream.mp4 -> abcd.lang.suffix.codec"""
-    language = (language or "un").lower()[:2]
+    language = language.lower()[:2]
     parts = path.stem.replace(f".{suffix}", "").rsplit(".", 1)
     if len(parts) == 1:
         name = parts[0]

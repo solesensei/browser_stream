@@ -660,7 +660,7 @@ class Ffmpeg:
             echo.warning(f"Audio language mismatch: {audio.language} != {audio_lang}")
         is_copy = codec is None and bitrate is None
         audio_lang = (
-            audio.language or audio_lang or utils.prompt_audio(audio)
+            audio_lang or audio.language or utils.prompt_audio(audio)
         ).lower()[:3]
         audio_codec = codec or audio.codec
         echo.info(
