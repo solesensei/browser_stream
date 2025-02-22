@@ -66,29 +66,11 @@ def select_video(
     raise Exit(f"Unsupported video file: {media_path}")
 
 
-def get_file_path(
-    path: Path,
-    codec: str,
-    language: str | None = None,
-    suffix: str = "stream",
-) -> Path:
-    """abcd.eng.stream.mp4 -> abcd.lang.suffix.codec"""
-    language = (language or "un").lower()[:2]
-    parts = path.stem.replace(f".{suffix}", "").rsplit(".", 1)
-    if len(parts) == 1:
-        name = parts[0]
-    elif len(parts[-1]) == 3:  # language code
-        name = parts[0]
-    else:
-        name = parts[0] + "." + parts[1]
-    return path.with_name(f"{name}.{language}.{suffix}.{codec}")
-
-
 def get_aac_audio_path(
     media_file: Path,
     audio_lang: str,
 ) -> Path:
-    return get_file_path(
+    return utils.get_file_path(
         path=media_file, codec=config.BROWSER_AUDIO_CODEC, language=audio_lang
     )
 
@@ -97,7 +79,7 @@ def get_media_stream_path(
     media_file: Path,
     language: str | None = None,
 ) -> Path:
-    return get_file_path(path=media_file, codec="mp4", language=language)
+    return utils.get_file_path(path=media_file, codec="mp4", language=language)
 
 
 def select_audio(
@@ -181,8 +163,10 @@ def select_audio(
         external_audios[index - len(audios)] if index >= len(audios) else (None, None)
     )
     if audio_media_stream_selected:
-        audio_lang = audio_media_stream_selected.language or audio_lang or utils.prompt_audio(
-            audio_media_stream_selected
+        audio_lang = (
+            audio_media_stream_selected.language
+            or audio_lang
+            or utils.prompt_audio(audio_media_stream_selected)
         )
         audio_aac = get_aac_audio_path(media_file, audio_lang)
         if audio_aac.exists() and utils.confirm(
@@ -206,8 +190,10 @@ def select_audio(
             ), audio_lang
         return audio_media_stream_selected, audio_lang
     if external_audio_file and audio_external_stream_selected:
-        audio_lang = audio_external_stream_selected.language or audio_lang or utils.prompt_audio(
-            audio_external_stream_selected
+        audio_lang = (
+            audio_external_stream_selected.language
+            or audio_lang
+            or utils.prompt_audio(audio_external_stream_selected)
         )
         audio_aac = get_aac_audio_path(external_audio_file, audio_lang)
         if audio_aac.exists() and utils.confirm(
@@ -246,8 +232,8 @@ def select_subtitle(
         echo.info(f"Using subtitle file: {subtitle_file}")
         subtitle_file_info = ffmpeg.get_media_info(subtitle_file)
         subtitle = subtitle_file_info.subtitles[0]
-        subtitle_lang = subtitle_lang or subtitle.language or utils.prompt_subtitles(
-            subtitle
+        subtitle_lang = (
+            subtitle_lang or subtitle.language or utils.prompt_subtitles(subtitle)
         )
         if (
             subtitle_lang
@@ -312,52 +298,81 @@ def select_subtitle(
             else (None, None)
         )
         if external_subtitle_file and subtitle_external_stream:
-            subtitle_lang = (
-                subtitle_external_stream.language
-                or utils.prompt_subtitles(subtitle_external_stream)
+            subtitle_lang = subtitle_external_stream.language or utils.prompt_subtitles(
+                subtitle_external_stream
             )
             return external_subtitle_file, subtitle_lang
 
         if media_stream_subtitle is not None:
-            subtitle_lang = (
-                subtitles[index].language
-                or utils.prompt_subtitles(subtitles[index])
+            subtitle_lang = subtitles[index].language or utils.prompt_subtitles(
+                subtitles[index]
             )
             subtitle_file = ffmpeg.extract_subtitle(
-                media_file, media_stream_subtitle, subtitle_lang=subtitle_lang,
+                media_file,
+                media_stream_subtitle,
+                subtitle_lang=subtitle_lang,
             )
             return subtitle_file, subtitle_lang
         raise RuntimeError("Should not reach this point")
     return None, None
 
 
-def check_if_media_conversion_needed(
-    media_file: Path,
-    audio_file: Path | None = None,
-    audio_stream: FfmpegStream | None = None,
-    subtitle_file: Path | None = None,
-    burn_subtitles: bool = False,
-) -> bool:
-    """Ad-hoc check if media file needs to be converted
-    Skip conversion if video already in MP4 format and has only one audio stream with needed codec
-    """
-    ffmpeg = Ffmpeg()
-    if audio_file or subtitle_file or burn_subtitles:
-        return True
-    media_info = ffmpeg.get_media_info(media_file)
-    if len(media_info.audios) > 1:
-        return True
-    if audio_stream and media_info.audios[0].codec != audio_stream.codec:
-        return True
-    return False
-
 def get_matched_media_stream_mp4(
     media_file: Path,
+    audio_lang: str,
     audio_file: Path | None = None,
     audio_stream: FfmpegStream | None = None,
     subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
     burn_subtitles: bool = False,
-)
+) -> Path | None:
+    ffmpeg = Ffmpeg()
+    fs = FS()
+
+    def _matched_info(file: Path) -> bool:
+        media_info = ffmpeg.get_media_info(file)
+        media_audio = media_info.audios[0]
+        media_subtitle = media_info.subtitles[0] if media_info.subtitles else None
+        if burn_subtitles:
+            if lang := media_info.get_burned_subtitles_lang():
+                if lang != subtitle_lang:
+                    echo.debug(
+                        f"Match {file.name} | Burned subtitle language mismatch: {lang} != {subtitle_lang}"
+                    )
+                    return False
+            else:
+                echo.debug(f"Match {file.name} | Burned subtitles not found")
+                return False
+        if audio_stream and media_audio != audio_stream.codec:
+            echo.debug(
+                f"Match {file.name} | Audio codec mismatch: {media_audio} != {audio_stream}"
+            )
+            return False
+        if audio_file and (audio_file_info := ffmpeg.get_media_info(audio_file)):
+            if media_audio != audio_file_info.audios[0].codec:
+                echo.debug(
+                    f"Match {file.name} | Audio file codec mismatch: {media_audio} != {audio_file_info.audios[0].codec}"
+                )
+                return False
+        if subtitle_file:
+            if not media_subtitle:
+                echo.debug(f"Match {file.name} | Subtitle file not found")
+                return False
+            if media_subtitle.language != subtitle_lang:
+                echo.debug(
+                    f"Match {file.name} | Subtitle language mismatch: {media_subtitle.language} != {subtitle_lang}"
+                )
+                return False
+        return True
+
+    if fs.get_extension(media_file) == "mp4" and _matched_info(media_file):
+        return media_file
+
+    output_file = get_media_stream_path(media_file, language=audio_lang)
+    if output_file.exists() and _matched_info(output_file):
+        return output_file
+
+    return None
 
 
 def prepare_file_to_stream(
@@ -388,8 +403,10 @@ def prepare_file_to_stream(
         subtitle_file=subtitle_file,
         subtitle_lang=subtitle_lang,
     )
-    if subtitle_file and not subtitle_lang:
-        subtitle_lang = utils.prompt_subtitles(subtitle_file)
+    if subtitle_file:
+        subtitle_file = fs.enforce_utf8(subtitle_file)
+        if not subtitle_lang:
+            subtitle_lang = utils.prompt_subtitles(subtitle_file)
 
     if burn_subtitles and not subtitle_file:
         raise Exit("Subtitles not found for burning")
@@ -398,17 +415,21 @@ def prepare_file_to_stream(
         raise Exit("Subtitles not found for adding to MP4")
 
     output_file = get_media_stream_path(media_file, language=audio_lang)
-
-    if not check_if_media_conversion_needed(
+    matched_media = get_matched_media_stream_mp4(
         media_file=media_file,
-        audio_file=selected_audio if isinstance(selected_audio, Path) else None,
+        audio_file=audio_file,
+        audio_lang=audio_lang,
         audio_stream=selected_audio
         if isinstance(selected_audio, FfmpegStream)
         else None,
-        subtitle_file=subtitle_file,
+        subtitle_file=subtitle_file if add_subtitles_to_mp4 else None,
+        subtitle_lang=subtitle_lang,
         burn_subtitles=burn_subtitles,
-    ):
-        echo.info(f"File: {media_file.name} is already in MP4 format. Use it as is")
+    )
+
+    if matched_media:
+        echo.info(f"Using existing media stream file: {matched_media.name}")
+        media_file = matched_media
     elif not output_file.exists() or utils.confirm(
         f"File already exists: {output_file.name}, do you want to overwrite it?"
     ):
@@ -435,7 +456,6 @@ def prepare_file_to_stream(
         and not burn_subtitles
         and fs.get_extension(subtitle_file) != "vtt"
     ):
-        subtitle_file = fs.enforce_utf8(subtitle_file)
         vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
         if vtt_subtitle_file.exists() and utils.confirm(
             f"VTT subtitle file already exists: {vtt_subtitle_file.name}. Do you want to use it?"

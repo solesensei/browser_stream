@@ -55,6 +55,24 @@ def prompt_subtitles(subtitles: Path | FfmpegStream) -> str:
     return prompt(f"Enter language for subtitles: {subtitles} (eng, esp, ...)").lower()
 
 
+def get_file_path(
+    path: Path,
+    codec: str,
+    language: str | None = None,
+    suffix: str = "stream",
+) -> Path:
+    """abcd.eng.stream.mp4 -> abcd.lang.suffix.codec"""
+    language = (language or "un").lower()[:2]
+    parts = path.stem.replace(f".{suffix}", "").rsplit(".", 1)
+    if len(parts) == 1:
+        name = parts[0]
+    elif len(parts[-1]) <= 3:  # language code
+        name = parts[0]
+    else:
+        name = parts[0] + "." + parts[1]
+    return path.with_name(f"{name}.{language}.{suffix}.{codec}")
+
+
 def resolve_path_pwd(path: Path) -> Path:
     """Resolve path with PWD (shell) if it's relative
 

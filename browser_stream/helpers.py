@@ -286,6 +286,7 @@ class FfmpegMediaInfo:
     bitrate: str
     duration: dt.timedelta | None
     streams: list[FfmpegStream]
+    comment: str | None = None
 
     def __repr__(self) -> str:
         return f"{self.title} ({self.filename})"
@@ -304,6 +305,13 @@ class FfmpegMediaInfo:
     def subtitles(self) -> list[FfmpegStream]:
         return [s for s in self.streams if s.type == "subtitle"]
 
+    def get_burned_subtitles_lang(self) -> str | None:
+        if self.comment:
+            match = re.search(r"burned-subs-lang:(\w{2,3})", self.comment)
+            if match:
+                return match.group(1)
+        return None
+
     @classmethod
     def parse(cls, output: str, filename: Path) -> "FfmpegMediaInfo":
         lines = output.splitlines()
@@ -318,6 +326,7 @@ class FfmpegMediaInfo:
 
         title: str = ""
         bitrate: str = ""
+        comment: str | None = None
         duration: dt.timedelta = dt.timedelta()
         last_stream_info: FfmpegStream | None = None
         streams: list[FfmpegStream] = []
@@ -343,6 +352,12 @@ class FfmpegMediaInfo:
                     echo.warning(
                         f"{filename} | Cannot parse duration from line: {line}"
                     )
+            if "comment" in line:
+                match = re.search(r"comment\s+:\s+(.+)", line)
+                if match:
+                    comment = match.group(1)
+                else:
+                    echo.warning(f"{filename} | Cannot parse comment from line: {line}")
             if line.startswith("title") and last_stream_info is None:
                 match = re.search(r"title\s+:\s+(.+)", line)
                 if match:
@@ -396,6 +411,7 @@ class FfmpegMediaInfo:
             bitrate=bitrate,
             duration=duration,
             streams=streams,
+            comment=comment,
         )
 
     def to_dict(self) -> dict[str, tp.Any]:
@@ -579,7 +595,7 @@ class Ffmpeg:
                         "-vf",
                         f"subtitles={subtitle_file}",
                         "-metadata",
-                        f"subtitles-burned-in=lang:{subtitle_lang}",
+                        f"comment=burned-subs-lang:{subtitle_lang}",
                     ]
                 )
             else:
