@@ -32,6 +32,13 @@ app = typer.Typer(
     rich_markup_mode="rich",
     no_args_is_help=True,
 )
+setup_app = typer.Typer(
+    name="setup",
+    help="Setup helpers",
+    context_settings=config.CONTEXT_SETTINGS,
+    pretty_exceptions_enable=config.PRETTY_EXCEPTIONS,
+    rich_markup_mode="rich",
+)
 media_app = typer.Typer(
     name="media",
     help="Media helpers",
@@ -39,6 +46,7 @@ media_app = typer.Typer(
     pretty_exceptions_enable=config.PRETTY_EXCEPTIONS,
     rich_markup_mode="rich",
 )
+app.add_typer(setup_app)
 app.add_typer(media_app)
 
 
@@ -49,7 +57,7 @@ def config_command():
     echo.print_json(conf.to_dict())
 
 
-@app.command("nginx")
+@setup_app.command("nginx")
 def nginx_command(
     media_dir: Path | None = typer.Option(
         conf.media_dir,
@@ -174,7 +182,7 @@ def media_info_command(
     echo.print_json(ffmeg.get_media_info(media_file).to_dict())
 
 
-@app.command("plex")
+@setup_app.command("plex")
 def plex_command(
     x_token: tp.Annotated[str, typer.Option(help="X-Plex-Token")],
     base_url: tp.Annotated[

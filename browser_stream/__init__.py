@@ -499,11 +499,11 @@ def stream_nginx(
 
     if not conf.nginx_secret:
         raise typer.BadParameter(
-            "Nginx configuration not found, run `browser-streamer nginx` first"
+            "Nginx configuration not found, run `browser-streamer setup nginx` first"
         )
     if not conf.media_dir:
         raise typer.BadParameter(
-            "Media directory not found, run `browser-streamer nginx` first"
+            "Media directory not found, run `browser-streamer setup nginx` first"
         )
     if not media.as_posix().startswith(conf.media_dir.as_posix()):
         raise typer.BadParameter(
@@ -556,7 +556,7 @@ def stream_nginx(
     )
     echo.print(
         typer.style(
-            "\nDo not forget to update token with `browser-streamer nginx --update-token`",
+            "\nDo not forget to update token with `browser-streamer setup nginx --update-token`",
             bold=True,
             fg="yellow",
         )
@@ -567,7 +567,7 @@ def stream_nginx(
             "Directory listing is enabled in Nginx configuration (allow_index=true). That means anyone can navigate through your media files"
         )
         echo.printc(
-            "Disable directory listing with `browser-streamer nginx --no-allow-index`",
+            "Disable directory listing with `browser-streamer setup nginx --no-allow-index`",
             fg="red",
         )
 
@@ -590,5 +590,5 @@ def stream_plex(
 
     if not conf.plex_x_token:
         raise typer.BadParameter(
-            "Plex X-Token not found, run `browser-streamer plex` first"
+            "Plex X-Token not found, run `browser-streamer setup plex` first"
         )
