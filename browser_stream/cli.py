@@ -106,6 +106,7 @@ def nginx_command(
     media_dir = utils.resolve_path_pwd(
         media_dir or utils.prompt_path("Enter path to media directory")
     )
+    echo.info(f"Media directory: {media_dir}")
 
     fs = FS()
     nginx = Nginx()
