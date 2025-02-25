@@ -123,9 +123,15 @@ def get_temp_file(suffix: str = "", create: bool = True) -> Path:
 
 
 def move_file(src: Path, dst: Path, overwrite: bool = False) -> None:
+    if not src.is_file():
+        raise ValueError("Source is not a file")
+    if dst.is_dir():
+        dst = dst / src.name
+    if src == dst:
+        return
     if dst.exists():
         if overwrite:
-            dst.unlink()
+            shutil.rmtree(dst)
         else:
             raise FileExistsError(f"File `{dst}` already exists")
     shutil.move(src, dst)
