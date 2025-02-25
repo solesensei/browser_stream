@@ -549,7 +549,9 @@ class Ffmpeg:
         )
         # rename temp file
         utils.move_file(
-            subtitle_file, subtitle_file.with_suffix(f".bakup{subtitle_file.suffix}")
+            subtitle_file,
+            subtitle_file.with_suffix(f".bakup{subtitle_file.suffix}"),
+            overwrite=True,
         )
         utils.move_file(temp_output_file, subtitle_file)
 
