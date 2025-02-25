@@ -526,6 +526,31 @@ class Ffmpeg:
         )
         return subtitle_file
 
+    def set_subtitle_language(
+        self, subtitle_file: Path, subtitle_lang: str | None
+    ) -> None:
+        media_file_info = self.get_media_info(subtitle_file)
+        subtitle = media_file_info.subtitles[0]
+        subtitle_lang = (subtitle_lang or utils.prompt_subtitles(subtitle)).lower()[:3]
+        echo.info(
+            f"Setting subtitle language: {subtitle.title} [{subtitle_lang}] in {subtitle_file}"
+        )
+        temp_output_file = utils.get_temp_file(suffix=subtitle_file.suffix)
+        self._run(
+            "-i",
+            subtitle_file,
+            "-c:s",
+            "copy",
+            "-metadata:s:s:0",
+            f"language={subtitle_lang}",
+            "-y",
+            temp_output_file,
+            live_output=True,
+        )
+        # rename temp file
+        subtitle_file.rename(subtitle_file.with_suffix(f"-bak{subtitle_file.suffix}"))
+        temp_output_file.rename(subtitle_file)
+
     def _assert_input_output_equal(self, input_file: Path, output_file: Path):
         if input_file == output_file:
             raise Exit(

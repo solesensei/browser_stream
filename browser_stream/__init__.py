@@ -411,6 +411,8 @@ def prepare_file_to_stream(
     if subtitle_file:
         subtitle_file = fs.enforce_utf8(subtitle_file)
         subtitle_lang = subtitle_lang or utils.prompt_subtitles(subtitle_file)
+        if not ffmpeg.get_media_info(subtitle_file).subtitles[0].language:
+            ffmpeg.set_subtitle_language(subtitle_file, subtitle_lang)
         echo.info(f"Selected subtitle: {subtitle_file} [{subtitle_lang}]")
 
     if burn_subtitles and not subtitle_file:

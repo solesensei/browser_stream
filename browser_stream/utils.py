@@ -6,6 +6,7 @@ import urllib.parse
 import os
 import chardet
 import click
+import tempfile
 import textwrap
 from pathlib import Path
 import datetime as dt
@@ -111,6 +112,13 @@ def select_options_interactive(
         )
     )
     return select_i - 1, options[select_i - 1]
+
+
+def get_temp_file(suffix: str = "", create: bool = True) -> Path:
+    temp_file = Path(tempfile.mktemp(suffix=suffix))
+    if create:
+        temp_file.touch()
+    return temp_file
 
 
 def url_encode(url: str) -> str:
