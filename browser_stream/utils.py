@@ -116,7 +116,7 @@ def select_options_interactive(
 
 
 def get_temp_file(suffix: str = "", create: bool = True) -> Path:
-    temp_file = Path(tempfile.mktemp(suffix=suffix))
+    temp_file = Path(tempfile.mktemp(suffix=suffix, dir=Path.cwd(), prefix=".tmp"))
     if create:
         temp_file.touch()
     return temp_file
