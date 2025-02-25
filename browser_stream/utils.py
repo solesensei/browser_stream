@@ -4,6 +4,7 @@ import typing as tp
 import functools
 import urllib.parse
 import os
+import shutil
 import chardet
 import click
 import tempfile
@@ -119,6 +120,15 @@ def get_temp_file(suffix: str = "", create: bool = True) -> Path:
     if create:
         temp_file.touch()
     return temp_file
+
+
+def move_file(src: Path, dst: Path, overwrite: bool = False) -> None:
+    if dst.exists():
+        if overwrite:
+            dst.unlink()
+        else:
+            raise FileExistsError(f"File `{dst}` already exists")
+    shutil.move(src, dst)
 
 
 def url_encode(url: str) -> str:
