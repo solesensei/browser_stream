@@ -131,9 +131,11 @@ def move_file(src: Path, dst: Path, overwrite: bool = False) -> None:
         return
     if dst.exists():
         if overwrite:
-            shutil.rmtree(dst)
+            # remove file
+            dst.unlink()
         else:
             raise FileExistsError(f"File `{dst}` already exists")
+    echo.debug(f"Moving file `{src}` to `{dst}`")
     shutil.move(src, dst)
 
 
