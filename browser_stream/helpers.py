@@ -548,7 +548,7 @@ class Ffmpeg:
             live_output=True,
         )
         # rename temp file
-        subtitle_file.rename(subtitle_file.with_suffix(f"-bak{subtitle_file.suffix}"))
+        subtitle_file.rename(subtitle_file.with_suffix(f".bak{subtitle_file.suffix}"))
         temp_output_file.rename(subtitle_file)
 
     def _assert_input_output_equal(self, input_file: Path, output_file: Path):
