@@ -129,7 +129,7 @@ def select_audio(
 
     external_audio_files = sorted(fs.get_audio_files(media_file.parent))
     external_audio_files = [
-        f for f in external_audio_files if f.stem == media_file.stem
+        f for f in external_audio_files if f.stem.split(".", 1)[0] in media_file.stem
     ] or external_audio_files
     if len(external_audio_files) > 10:
         echo.warning(
@@ -251,7 +251,7 @@ def select_subtitle(
 
     external_subtitle_files = sorted(fs.get_subtitle_files(media_file.parent))
     external_subtitle_files = [
-        f for f in external_subtitle_files if f.stem == media_file.stem
+        f for f in external_subtitle_files if f.stem.split(".", 1)[0] in media_file.stem
     ] or external_subtitle_files
     if len(external_subtitle_files) > 20:
         echo.warning(
