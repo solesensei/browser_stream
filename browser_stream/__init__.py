@@ -402,6 +402,7 @@ def prepare_file_to_stream(
         audio_file=audio_file,
         audio_lang=audio_lang,
     )
+    echo.info(f"Selected audio: {selected_audio} [{audio_lang}]")
     subtitle_file, subtitle_lang = select_subtitle(
         media_file=media_file,
         subtitle_file=subtitle_file,
@@ -410,6 +411,7 @@ def prepare_file_to_stream(
     if subtitle_file:
         subtitle_file = fs.enforce_utf8(subtitle_file)
         subtitle_lang = subtitle_lang or utils.prompt_subtitles(subtitle_file)
+        echo.info(f"Selected subtitle: {subtitle_file} [{subtitle_lang}]")
 
     if burn_subtitles and not subtitle_file:
         raise Exit("Subtitles not found for burning")
