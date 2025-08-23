@@ -765,6 +765,8 @@ class FS:
 
     @staticmethod
     def get_extension(path: Path) -> str:
+        if not path.suffixes:
+            return ""
         return path.suffixes[-1].lstrip(".")
 
     @classmethod
@@ -778,6 +780,9 @@ class FS:
         directories: list[Path] = []
         files: list[Path] = []
         for path in directory.iterdir():
+            # Skip hidden files and system files
+            if path.name.startswith('.'):
+                continue
             if path.is_dir() and max_dirs > 0 and recursive_depth > 0:
                 max_dirs -= 1
                 directories.append(path)
