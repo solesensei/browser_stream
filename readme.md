@@ -79,6 +79,9 @@ browser-streamer stream /path/to/movie.mp4 --audio-file audio.aac --subtitle-fil
 # Stream directory (scans for video files)
 browser-streamer stream /path/to/media/directory/
 
+# Scan for external audio/subtitle files for single movie
+browser-streamer stream movie.mkv --scan-external
+
 # Stream with embedded subtitles
 browser-streamer stream /path/to/movie.mp4 --embed-subs --subtitle-file subs.srt
 

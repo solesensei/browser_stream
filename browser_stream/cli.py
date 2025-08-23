@@ -267,6 +267,11 @@ def stream_command(
         show_default=True,
         click_type=click.Choice(["nginx", "plex"], case_sensitive=False),
     ),
+    scan_external: bool = typer.Option(
+        False,
+        help="Scan directory for external audio/subtitle files when single file provided",
+        show_default=False,
+    ),
 ):
     """Stream media file using Nginx or Plex
 
@@ -284,13 +289,20 @@ def stream_command(
         
         Stream directory (scan for video files):
         $ browser-streamer stream /path/to/media/directory/
+        
+        Scan for external audio/subtitle files for single movie:
+        $ browser-streamer stream movie.mkv --scan-external
     """
     with_nginx = server.lower() == "nginx"
     with_plex = server.lower() == "plex"
     
-    # Auto-determine scanning behavior based on media path and options
-    # Don't scan if specific files are provided OR if it's --raw mode
-    auto_no_scan = (audio_file is not None or subtitle_file is not None) or raw
+    # Determine scanning behavior:
+    # - Always scan if media is a directory
+    # - For single files: scan only if --scan-external is used
+    # - Don't scan if specific files provided or --raw mode
+    is_directory = media.is_dir()
+    has_specific_files = (audio_file is not None or subtitle_file is not None)
+    should_scan = (is_directory or scan_external) and not has_specific_files and not raw
     
     media = utils.resolve_path_pwd(media)
     if with_nginx:
@@ -303,7 +315,7 @@ def stream_command(
             audio_file=audio_file,
             do_not_convert=raw,
             add_subtitles_to_mp4=embed_subs,
-            no_scan=auto_no_scan,
+            no_scan=not should_scan,
         )
     elif with_plex:
         stream_plex(
@@ -313,7 +325,7 @@ def stream_command(
             burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
             do_not_convert=raw,
-            no_scan=auto_no_scan,
+            no_scan=not should_scan,
         )
     echo.info("Completed")
 
