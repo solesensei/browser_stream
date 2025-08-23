@@ -22,6 +22,12 @@ class Exit(Exception):
         self.code = code
 
 
+def exit_if(condition: tp.Any, message: str, code: int = 1) -> None:
+    """Helper method to exit if condition is truthy"""
+    if condition:
+        raise Exit(message, code)
+
+
 class PlexAPI:
     """Wrapper around Plex API"""
 
@@ -294,7 +300,8 @@ class FfmpegMediaInfo:
     @property
     def video(self) -> FfmpegStream:
         video_ = next((s for s in self.streams if s.type == "video"), None)
-        assert video_ is not None, "Video stream not found"
+        if video_ is None:
+            raise Exit("Video stream not found")
         return video_
 
     @property
@@ -842,20 +849,20 @@ class FS:
                 f.write(content + "\n")
 
     @staticmethod
-    def create_symlink(src: Path, dst: Path, sudo: bool = False):
-        if src.exists() and not src.is_symlink():
-            raise Exit(f"Sorce path is not a symlink: {src}")
-        if not dst.exists():
-            raise Exit(f"Destination path does not exist: {dst}")
-        echo.info(f"Creating symlink: {src} -> {dst}")
+    def create_symlink(symlink_path: Path, target_path: Path, sudo: bool = False):
+        if symlink_path.exists() and not symlink_path.is_symlink():
+            raise Exit(f"Symlink path already exists as a regular file: {symlink_path}")
+        if not target_path.exists():
+            raise Exit(f"Target path does not exist: {target_path}")
+        echo.info(f"Creating symlink: {symlink_path} -> {target_path}")
         if sudo:
-            command = ["sudo", "-S", "ln", "-sf", dst.as_posix(), src.as_posix()]
+            command = ["sudo", "-S", "ln", "-sf", target_path.as_posix(), symlink_path.as_posix()]
             password = utils.get_sudo_pass(
                 command, what_happens="Symlink would be created"
             )
             utils.run_process(command, input_=password)
         else:
-            src.symlink_to(dst)
+            symlink_path.symlink_to(target_path)
 
     @staticmethod
     def remove_symlink(path: Path, sudo: bool = False):

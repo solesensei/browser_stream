@@ -2,12 +2,14 @@ import typing as tp
 import sys
 from pathlib import Path
 import typer
+import click
 
 from browser_stream import (
     stream_nginx,
     stream_plex,
     PlexAPI,
     Exit,
+    exit_if,
     Ffmpeg,
     FS,
     Nginx,
@@ -173,7 +175,7 @@ def nginx_command(
     nginx.reload()
 
     if not site_enabled.exists():
-        fs.create_symlink(site_enabled, site_available, sudo=True)
+        fs.create_symlink(symlink_path=site_enabled, target_path=site_available, sudo=True)
     echo.info("Nginx configuration generated successfully")
 
 
@@ -212,13 +214,11 @@ def plex_command(
 
 @app.command("stream")
 def stream_command(
-    media: Path | None = typer.Option(
-        None,
+    media: Path = typer.Argument(
         help="Path to media file or directory",
-        dir_okay=True,
-        file_okay=True,
         exists=True,
-        show_default=False,
+        file_okay=True,
+        dir_okay=True,
     ),
     audio_lang: str | None = typer.Option(
         None,
@@ -251,25 +251,21 @@ def stream_command(
         help="Burn subtitles into video stream",
         show_default=False,
     ),
-    add_subtitles_to_mp4: bool = typer.Option(
+    embed_subs: bool = typer.Option(
         False,
-        help="Add subtitles to MP4, by default False",
+        help="Embed subtitles into MP4 file",
         show_default=False,
     ),
-    do_not_convert: bool = typer.Option(
+    raw: bool = typer.Option(
         False,
-        help="Skip converting media file to MP4 format. Will not work for browsers",
+        help="Skip converting media file to MP4 format (quick streaming)",
         show_default=False,
     ),
-    with_nginx: bool = typer.Option(
-        False,
-        help="Stream media file using Nginx server (default)",
-        show_default=False,
-    ),
-    with_plex: bool = typer.Option(
-        False,
-        help="Stream media file using Plex direct.url",
-        show_default=False,
+    server: str = typer.Option(
+        "nginx",
+        help="Streaming server to use (nginx or plex)",
+        show_default=True,
+        click_type=click.Choice(["nginx", "plex"], case_sensitive=False),
     ),
 ):
     """Stream media file using Nginx or Plex
@@ -277,22 +273,26 @@ def stream_command(
     \b
     Examples:
 
-        Stream media file using Nginx server:
-        $ browser-streamer stream /path/to/media.mp4 --with-nginx
+        Stream media file using Nginx server (default):
+        $ browser-streamer stream /path/to/media.mp4
 
-        Stream media file using Plex direct.url:
-        $ browser-streamer stream /path/to/media.mp4 --with-plex
+        Stream media file using Plex:
+        $ browser-streamer stream /path/to/media.mp4 --server=plex
+        
+        Quick streaming without conversion:
+        $ browser-streamer stream /path/to/media.mp4 --raw
+        
+        Stream directory (scan for video files):
+        $ browser-streamer stream /path/to/media/directory/
     """
-    if with_nginx and with_plex:
-        raise typer.BadParameter(
-            "Only one of --with-nginx or --with-plex can be enabled",
-            param_hint="--with-nginx or --with-plex",
-        )
-    if not with_nginx and not with_plex:
-        with_nginx = True
-    media = utils.resolve_path_pwd(
-        media or utils.prompt_path("Enter path to media file")
-    )
+    with_nginx = server.lower() == "nginx"
+    with_plex = server.lower() == "plex"
+    
+    # Auto-determine scanning behavior based on media path and options
+    # Don't scan if specific files are provided OR if it's --raw mode
+    auto_no_scan = (audio_file is not None or subtitle_file is not None) or raw
+    
+    media = utils.resolve_path_pwd(media)
     if with_nginx:
         stream_nginx(
             media=media,
@@ -301,8 +301,9 @@ def stream_command(
             burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
             audio_file=audio_file,
-            do_not_convert=do_not_convert,
-            add_subtitles_to_mp4=add_subtitles_to_mp4,
+            do_not_convert=raw,
+            add_subtitles_to_mp4=embed_subs,
+            no_scan=auto_no_scan,
         )
     elif with_plex:
         stream_plex(
@@ -311,7 +312,8 @@ def stream_command(
             subtitle_lang=subtitle_lang,
             burn_subtitles=burn_subtitles,
             audio_lang=audio_lang,
-            do_not_convert=do_not_convert,
+            do_not_convert=raw,
+            no_scan=auto_no_scan,
         )
     echo.info("Completed")
 

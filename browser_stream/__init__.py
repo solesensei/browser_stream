@@ -12,6 +12,7 @@ from browser_stream.helpers import (
     HTML,
     FfmpegStream,
     Exit,
+    exit_if,
 )
 import browser_stream.config as config
 from browser_stream.echo import echo
@@ -32,10 +33,10 @@ def build_stream_url_nginx(
     media_file: Path,
 ) -> str:
     """Build stream URL for media file using Nginx server"""
-    assert conf.nginx_secret, "Nginx secret not found"
-    assert conf.nginx_domain_name, "Nginx domain name not found"
-    assert conf.nginx_port, "Nginx port not found"
-    assert conf.media_dir, "Media directory not found"
+    exit_if(not conf.nginx_secret, "Nginx secret not found")
+    exit_if(not conf.nginx_domain_name, "Nginx domain name not found")
+    exit_if(not conf.nginx_port, "Nginx port not found")
+    exit_if(not conf.media_dir, "Media directory not found")
     relative_path = media_file.relative_to(conf.media_dir)
     return utils.url_encode(
         f"https://{conf.nginx_domain_name}:{conf.nginx_port}/{conf.media_dir.as_posix().lstrip('/')}/{relative_path.as_posix()}?x-token={conf.nginx_secret}"
@@ -46,9 +47,9 @@ def build_stream_url_plex(
     media_file: Path,
 ) -> str:
     """Build stream URL for media file using Plex server"""
-    assert conf.plex_x_token, "Plex X-Token not found"
-    assert conf.host_url, "Host URL not found"
-    assert conf.plex_server_id, "Plex server ID not found"
+    exit_if(not conf.plex_x_token, "Plex X-Token not found")
+    exit_if(not conf.host_url, "Host URL not found")
+    exit_if(not conf.plex_server_id, "Plex server ID not found")
     plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
     return utils.url_encode(plex.get_stream_url(media_file))
 
@@ -94,6 +95,7 @@ def select_audio(
     media_file: Path,
     audio_file: Path | None = None,
     audio_lang: str | None = None,
+    scan_directory: bool = True,
 ) -> tuple[Path | FfmpegStream, str]:
     ffmpeg = Ffmpeg()
     fs = FS()
@@ -127,19 +129,20 @@ def select_audio(
 
         return audio_file, audio_lang
 
-    external_audio_files = sorted(fs.get_audio_files(media_file.parent))
-    external_audio_files = [
-        f for f in external_audio_files if f.stem.split(".", 1)[0] in media_file.stem
-    ] or external_audio_files
-    if len(external_audio_files) > 10:
-        echo.warning(
-            f"Found {len(external_audio_files)} audio files in {media_file.parent.name}. Showing only first 10"
-        )
-        external_audio_files = external_audio_files[:10]
     external_audios: list[tuple[Path, FfmpegStream]] = []
-    for external_audio_file_ in external_audio_files:
-        audio_file_info = ffmpeg.get_media_info(external_audio_file_)
-        external_audios.append((external_audio_file_, audio_file_info.audios[0]))
+    if scan_directory:
+        external_audio_files = sorted(fs.get_audio_files(media_file.parent))
+        external_audio_files = [
+            f for f in external_audio_files if f.stem.split(".", 1)[0] in media_file.stem
+        ] or external_audio_files
+        if len(external_audio_files) > 10:
+            echo.warning(
+                f"Found {len(external_audio_files)} audio files in {media_file.parent.name}. Showing only first 10"
+            )
+            external_audio_files = external_audio_files[:10]
+        for external_audio_file_ in external_audio_files:
+            audio_file_info = ffmpeg.get_media_info(external_audio_file_)
+            external_audios.append((external_audio_file_, audio_file_info.audios[0]))
 
     if audio_lang:
         matched_internal_audios = [
@@ -225,6 +228,7 @@ def select_subtitle(
     media_file: Path,
     subtitle_file: Path | None = None,
     subtitle_lang: str | None = None,
+    scan_directory: bool = True,
 ) -> tuple[Path | None, str | None]:
     ffmpeg = Ffmpeg()
     fs = FS()
@@ -249,21 +253,22 @@ def select_subtitle(
             )
         return subtitle_file, subtitle_lang
 
-    external_subtitle_files = sorted(fs.get_subtitle_files(media_file.parent))
-    external_subtitle_files = [
-        f for f in external_subtitle_files if f.stem.split(".", 1)[0] in media_file.stem
-    ] or external_subtitle_files
-    if len(external_subtitle_files) > 20:
-        echo.warning(
-            f"Found {len(external_subtitle_files)} subtitle files in {media_file.parent.name}. Showing only first 20"
-        )
-        external_subtitle_files = external_subtitle_files[:20]
     external_subtitles: list[tuple[Path, FfmpegStream]] = []
-    for external_subtitle_file_ in external_subtitle_files:
-        subtitle_file_info = ffmpeg.get_media_info(external_subtitle_file_)
-        external_subtitles.append(
-            (external_subtitle_file_, subtitle_file_info.subtitles[0])
-        )
+    if scan_directory:
+        external_subtitle_files = sorted(fs.get_subtitle_files(media_file.parent))
+        external_subtitle_files = [
+            f for f in external_subtitle_files if f.stem.split(".", 1)[0] in media_file.stem
+        ] or external_subtitle_files
+        if len(external_subtitle_files) > 20:
+            echo.warning(
+                f"Found {len(external_subtitle_files)} subtitle files in {media_file.parent.name}. Showing only first 20"
+            )
+            external_subtitle_files = external_subtitle_files[:20]
+        for external_subtitle_file_ in external_subtitle_files:
+            subtitle_file_info = ffmpeg.get_media_info(external_subtitle_file_)
+            external_subtitles.append(
+                (external_subtitle_file_, subtitle_file_info.subtitles[0])
+            )
 
     if subtitle_lang:
         matched_internal_subtitles = [
@@ -387,6 +392,7 @@ def prepare_file_to_stream(
     subtitle_lang: str | None = None,
     burn_subtitles: bool = False,
     add_subtitles_to_mp4: bool = False,
+    no_scan: bool = False,
 ) -> StreamMedia:
     fs = FS()
     ffmpeg = Ffmpeg()
@@ -397,16 +403,21 @@ def prepare_file_to_stream(
         media_file = media
 
     ffmpeg.print_media_info(media_file)
+    # Only scan directory if no specific files are provided and not explicitly disabled
+    should_scan_directory = not no_scan and (audio_file is None and subtitle_file is None)
+    
     selected_audio, audio_lang = select_audio(
         media_file=media_file,
         audio_file=audio_file,
         audio_lang=audio_lang,
+        scan_directory=should_scan_directory,
     )
     echo.info(f"Selected audio: {selected_audio} [{audio_lang}]")
     subtitle_file, subtitle_lang = select_subtitle(
         media_file=media_file,
         subtitle_file=subtitle_file,
         subtitle_lang=subtitle_lang,
+        scan_directory=should_scan_directory,
     )
     if subtitle_file:
         subtitle_file = fs.enforce_utf8(subtitle_file)
@@ -501,6 +512,7 @@ def stream_nginx(
     burn_subtitles: bool = False,
     add_subtitles_to_mp4: bool = False,
     do_not_convert: bool = False,
+    no_scan: bool = False,
 ):
     """
     Check Nginx configuration, convert file and prints the URL to stream media file
@@ -541,6 +553,7 @@ def stream_nginx(
             subtitle_lang=subtitle_lang,
             burn_subtitles=burn_subtitles,
             add_subtitles_to_mp4=add_subtitles_to_mp4,
+            no_scan=no_scan,
         )
         media = stream_media.path
         subtitle_file = stream_media.subtitle_path
@@ -591,6 +604,7 @@ def stream_plex(
     subtitle_lang: str | None = None,
     burn_subtitles: bool = False,
     do_not_convert: bool = False,
+    no_scan: bool = False,
 ):
     """
     Check file exists on Plex server, convert file and prints the URL to stream media file

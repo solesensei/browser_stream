@@ -207,7 +207,6 @@ def run_process(
     )
 
 
-@functools.cache
 def _get_sudo_password() -> str:
     return prompt("Enter your sudo password", hide_input=True).strip()
 

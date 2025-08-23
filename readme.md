@@ -1,6 +1,6 @@
 # Browser Media Streamer
 
-![version](https://img.shields.io/badge/version-v0.1.0-blue.svg)
+![version](https://img.shields.io/badge/version-v0.2.0-blue.svg)
 
 This tool assists in preparing local media and configuring Nginx/Plex for HTTP streaming.
 It generates direct URLs for media files that can be used to watch directly in web browsers.
@@ -24,10 +24,12 @@ This tool is designed to work **with original quality** (without server transcod
 1. Python 3.10 or higher (use [pyenv](https://github.com/pyenv/pyenv) if needed).
 2. Install the tool
 
-   <details><summary>Install using pipx</summary>
+   <details><summary>Install using uvx</summary>
 
    ```bash
-   pipx install git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
+   uvx --from git+ssh://git@github.com/solesensei/browser_stream.git@v0.2.0 browser-streamer --help
+   # or install persistently
+   uv tool install git+ssh://git@github.com/solesensei/browser_stream.git@v0.2.0
    ```
 
    </details>
@@ -38,7 +40,7 @@ This tool is designed to work **with original quality** (without server transcod
     ```bash
     # Create a virtual environment and install dependencies
     python -m venv venv && source venv/bin/activate
-    pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.1.0
+    pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.2.0
     # or
     git clone git@github.com:solesensei/browser_stream.git
     pip install browser_stream/
@@ -59,6 +61,31 @@ This tool is designed to work **with original quality** (without server transcod
 > [!NOTE]
 > Tool can work with Nginx or Plex. You can setup one of them or both on different ports.
 
+### Quick Examples
+
+```bash
+# Basic streaming (uses Nginx by default)
+browser-streamer stream /path/to/movie.mp4
+
+# Stream with Plex server
+browser-streamer stream /path/to/movie.mp4 --server=plex
+
+# Quick streaming without conversion
+browser-streamer stream /path/to/movie.mp4 --raw
+
+# Stream with specific audio and subtitle files
+browser-streamer stream /path/to/movie.mp4 --audio-file audio.aac --subtitle-file subs.srt
+
+# Stream directory (scans for video files)
+browser-streamer stream /path/to/media/directory/
+
+# Stream with embedded subtitles
+browser-streamer stream /path/to/movie.mp4 --embed-subs --subtitle-file subs.srt
+
+# Raw streaming (no conversion, for supported formats)
+browser-streamer stream /path/to/movie.mp4 --raw
+```
+
 ### Nginx
 
 > [!TIP]
@@ -70,7 +97,7 @@ sudo apt update && sudo apt install nginx -y
 # Configure Nginx over HTTP (no SSL)
 browser-streamer setup nginx --media-dir /path/to/media --ipv6 --port 32000 
 # Get stream URL
-browser-streamer stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-nginx
+browser-streamer stream /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en
 ```
 
 ### Plex
@@ -86,7 +113,7 @@ browser-streamer setup plex --media-dir /path/to/media --x-token your-plex-token
 # (alternative) Configure Plex with download url (can be gotten from plex web player)
 browser-streamer setup plex --media-dir /path/to/media --download-url https://ip-address.plex.direct:32400/library/parts/your-part-id/file.mp4?X-Plex-Token=your-plex-token
 # Get stream URL
-browser-streamer stream --media-file /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --with-plex
+browser-streamer stream /path/to/media/file.mp4 --audio-lang jp --subtitle-lang en --server=plex
 ```
 
 ## Nginx HTTPS with Router Domain or Dynamic DNS
@@ -115,3 +142,32 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
     ```bash
     sudo certbot renew
     ```
+
+## CLI Features
+
+### Improved User Experience (v0.2.0)
+
+- **Positional media path**: `browser-streamer stream /path/to/file.mp4` (no more `--media`)
+- **Smart server selection**: `--server=nginx|plex` (default: nginx)
+- **Quick streaming mode**: `--raw` for instant streaming without conversion
+- **Intuitive options**: `--raw`, `--embed-subs` instead of verbose names
+- **Auto-detection**: Automatically skips directory scanning when specific files provided
+- **Better validation**: Clear error messages and input validation
+
+### Command Reference
+
+```bash
+# View all options
+browser-streamer stream --help
+
+# Setup commands
+browser-streamer setup nginx --help
+browser-streamer setup plex --help
+
+# Media analysis
+browser-streamer media info /path/to/file.mp4
+
+# Configuration management
+browser-streamer config              # View current config
+browser-streamer config --reset      # Reset configuration
+```
