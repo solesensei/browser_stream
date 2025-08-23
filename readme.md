@@ -154,7 +154,7 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
 - **Smart server selection**: `--server=nginx|plex` (default: nginx)
 - **Quick streaming mode**: `--raw` for instant streaming without conversion
 - **Intuitive options**: `--raw`, `--embed-subs` instead of verbose names
-- **Auto-detection**: Automatically skips directory scanning when specific files provided
+- **Smart scanning**: Only scans directories when needed, use `--scan-external` for single files
 - **Better validation**: Clear error messages and input validation
 
 ### Command Reference
