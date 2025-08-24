@@ -24,12 +24,33 @@ conf = utils.Config.load()
 
 
 @dataclasses.dataclass
+class BatchProcessingSettings:
+    """Cached settings from first episode for batch processing"""
+
+    audio_stream_index: int | None = None  # Index of selected audio stream
+    audio_lang: str | None = None
+    external_audio_file: Path | None = None
+    external_audio_stream_index: int | None = None
+    convert_audio_to_aac: bool = False
+
+    select_subtitles: bool = False  # Whether to select subtitles at all
+    subtitle_stream_index: int | None = None  # Index of selected subtitle stream
+    subtitle_lang: str | None = None
+    external_subtitle_file: Path | None = None
+    burn_subtitles: bool = False
+    add_subtitles_to_mp4: bool = False
+
+
+@dataclasses.dataclass
 class BatchProcessingInfo:
     """Information about TV show batch processing"""
 
     directory: Path
     episodes_to_process: list[Path]
     starting_episode: Path
+    settings: BatchProcessingSettings | None = (
+        None  # Cached settings from first episode
+    )
 
 
 @dataclasses.dataclass
@@ -38,6 +59,10 @@ class StreamMedia:
     subtitles_burned: bool = False
     subtitle_path: Path | None = None
     subtitle_lang: str | None = None
+
+
+# Global batch processing settings cache
+_batch_settings_cache: BatchProcessingSettings | None = None
 
 
 def build_stream_url_nginx(
@@ -83,13 +108,13 @@ def is_tv_show_directory(directory: Path) -> bool:
     for f in video_files:
         stem = f.stem
         # Skip obvious non-episode files
-        if stem.lower() in ['video', 'movie', 'film']:
+        if stem.lower() in ["video", "movie", "film"]:
             continue
         # Skip already processed variants (stream files)
-        if '.stream' in stem:
+        if ".stream" in stem:
             continue
         stems.append(stem)
-    
+
     # Need at least 2 potential episode files after filtering
     if len(stems) < 2:
         return False
@@ -100,7 +125,9 @@ def is_tv_show_directory(directory: Path) -> bool:
     normalized_stems = []
     for stem in stems:
         # Normalize spacing around underscores and other common separators
-        normalized = re.sub(r'\s*_\s*', '_', stem)  # "Samurai Champloo _01" -> "Samurai Champloo_01"
+        normalized = re.sub(
+            r"\s*_\s*", "_", stem
+        )  # "Samurai Champloo _01" -> "Samurai Champloo_01"
         normalized_stems.append(normalized)
 
     # Find longest common prefix from normalized stems
@@ -122,11 +149,11 @@ def is_tv_show_directory(directory: Path) -> bool:
         show_patterns = []
         for stem in normalized_stems:
             # Find the position of the first digit
-            match = re.search(r'\d', stem)
+            match = re.search(r"\d", stem)
             if match:
-                potential_prefix = stem[:match.start()].rstrip('_- ')
+                potential_prefix = stem[: match.start()].rstrip("_- ")
                 show_patterns.append(potential_prefix)
-        
+
         if show_patterns:
             prefix = find_common_prefix(show_patterns)
             echo.debug(f"Pattern-based prefix: '{prefix}'")
@@ -136,8 +163,8 @@ def is_tv_show_directory(directory: Path) -> bool:
     for stem in normalized_stems:
         remaining_part = stem
         if prefix and len(stem) > len(prefix):
-            remaining_part = stem[len(prefix):].lstrip('_- ')
-        
+            remaining_part = stem[len(prefix) :].lstrip("_- ")
+
         # Find first number in the remaining part
         numbers = re.findall(r"\d+", remaining_part)
         if numbers:
@@ -150,7 +177,9 @@ def is_tv_show_directory(directory: Path) -> bool:
 
     # Check if we found episode numbers for most files and they vary
     # Use unique episodes vs filtered stems (not all video files)
-    if len(episode_numbers) >= len(stems) * 0.5:  # 50%+ files have numbers (more lenient)
+    if (
+        len(episode_numbers) >= len(stems) * 0.5
+    ):  # 50%+ files have numbers (more lenient)
         # Check that we have reasonable number of unique episodes
         if len(episode_numbers) >= 2:  # At least 2 different episodes
             return True
@@ -203,6 +232,7 @@ def select_audio(
     audio_lang: str | None = None,
     scan_directory: bool = True,
 ) -> tuple[Path | FfmpegStream, str]:
+    global _batch_settings_cache
     ffmpeg = Ffmpeg()
     fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
@@ -268,15 +298,29 @@ def select_audio(
             external_audios = matched_external_audios
 
     echo.print("-" * 50)
-    index, _ = utils.select_options_interactive(
-        [f"[{a.language or '-'}] {a.title} ({a.codec})" for a in audios]
-        + [
-            f"{utils.bb('ext')} [{a.language or '-'}] {f.parent.name} / {a.title} ({a.codec})"
-            for f, a in external_audios
-        ],
-        option_name="Audio",
-        message="Select audio stream",
-    )
+
+    # Use cached settings if available (batch processing mode)
+    if (
+        _batch_settings_cache is not None
+        and _batch_settings_cache.audio_stream_index is not None
+    ):
+        echo.info("Using cached audio selection from first episode")
+        index = _batch_settings_cache.audio_stream_index
+    else:
+        # Interactive selection
+        index, _ = utils.select_options_interactive(
+            [f"[{a.language or '-'}] {a.title} ({a.codec})" for a in audios]
+            + [
+                f"{utils.bb('ext')} [{a.language or '-'}] {f.parent.name} / {a.title} ({a.codec})"
+                for f, a in external_audios
+            ],
+            option_name="Audio",
+            message="Select audio stream",
+        )
+
+        # Cache the selection if in batch mode
+        if _batch_settings_cache is not None:
+            _batch_settings_cache.audio_stream_index = index
     audio_media_stream_selected = audios[index] if index < len(audios) else None
     external_audio_file, audio_external_stream_selected = (
         external_audios[index - len(audios)] if index >= len(audios) else (None, None)
@@ -291,12 +335,30 @@ def select_audio(
         ):
             return audio_aac, audio_lang
 
-        if (
+        # Check if audio conversion is needed
+        needs_conversion = (
             audio_media_stream_selected.codec != config.BROWSER_AUDIO_CODEC
-            and utils.confirm(
-                f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio_media_stream_selected.codec}. Do you want to convert it?"
-            )
-        ):
+        )
+
+        if needs_conversion:
+            # Use cached decision or ask user
+            if _batch_settings_cache is not None and hasattr(
+                _batch_settings_cache, "convert_audio_to_aac"
+            ):
+                convert_audio = _batch_settings_cache.convert_audio_to_aac
+                if convert_audio:
+                    echo.info("Using cached decision: converting audio to AAC")
+            else:
+                convert_audio = utils.confirm(
+                    f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio_media_stream_selected.codec}. Do you want to convert it?"
+                )
+                # Cache the decision
+                if _batch_settings_cache is not None:
+                    _batch_settings_cache.convert_audio_to_aac = convert_audio
+        else:
+            convert_audio = False
+
+        if needs_conversion and convert_audio:
             return ffmpeg.extract_audio_with_convert(
                 media_file=media_file,
                 output_file=audio_aac,
@@ -338,6 +400,7 @@ def select_subtitle(
     subtitle_lang: str | None = None,
     scan_directory: bool = True,
 ) -> tuple[Path | None, str | None]:
+    global _batch_settings_cache
     ffmpeg = Ffmpeg()
     fs = FS()
     media_file_info = ffmpeg.get_media_info(media_file)
@@ -397,17 +460,47 @@ def select_subtitle(
             subtitles = matched_internal_subtitles
             external_subtitles = matched_external_subtitles
 
-    if (subtitles or external_subtitles) and utils.confirm("Select subtitles?"):
+    # Check if subtitles should be selected
+    select_subs = False
+    if subtitles or external_subtitles:
+        # Use cached decision or ask user
+        if _batch_settings_cache is not None and hasattr(
+            _batch_settings_cache, "select_subtitles"
+        ):
+            select_subs = _batch_settings_cache.select_subtitles
+            if select_subs:
+                echo.info("Using cached decision: selecting subtitles")
+        else:
+            select_subs = utils.confirm("Select subtitles?")
+            # Cache the decision
+            if _batch_settings_cache is not None:
+                _batch_settings_cache.select_subtitles = select_subs
+
+    if select_subs:
         echo.print("-" * 50)
-        index, _ = utils.select_options_interactive(
-            [f"[{s.language or '-'}] {s.title} ({s.codec})" for s in subtitles]
-            + [
-                f"{utils.bb('ext')} [{s.language or '-'}] {f.parent.name} / {s.title} ({s.codec})"
-                for f, s in external_subtitles
-            ],
-            option_name="Subtitle",
-            message="Select subtitle stream",
-        )
+
+        # Use cached subtitle selection if available
+        if (
+            _batch_settings_cache is not None
+            and _batch_settings_cache.subtitle_stream_index is not None
+        ):
+            echo.info("Using cached subtitle selection from first episode")
+            index = _batch_settings_cache.subtitle_stream_index
+        else:
+            # Interactive selection
+            index, _ = utils.select_options_interactive(
+                [f"[{s.language or '-'}] {s.title} ({s.codec})" for s in subtitles]
+                + [
+                    f"{utils.bb('ext')} [{s.language or '-'}] {f.parent.name} / {s.title} ({s.codec})"
+                    for f, s in external_subtitles
+                ],
+                option_name="Subtitle",
+                message="Select subtitle stream",
+            )
+
+            # Cache the selection
+            if _batch_settings_cache is not None:
+                _batch_settings_cache.subtitle_stream_index = index
         media_stream_subtitle = (
             subtitles[index].index if index < len(subtitles) else None
         )
@@ -518,10 +611,10 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
     filtered_files = []
     for video_file in video_files:
         # Skip already processed variants (stream files)
-        if '.stream' in video_file.stem:
+        if ".stream" in video_file.stem:
             continue
         filtered_files.append(video_file)
-    
+
     # Group filtered files by format
     format_groups = {}
     for video_file in filtered_files:
@@ -536,16 +629,18 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
         format_options = []
         for ext, files in format_groups.items():
             format_options.append(f"{ext.upper()} ({len(files)} files)")
-        
+
         format_index, _ = utils.select_options_interactive(
             format_options,
             option_name="Video Format",
             message="Multiple formats detected. Choose which format to process:",
         )
-        
+
         selected_ext = list(format_groups.keys())[format_index]
         selected_files = format_groups[selected_ext]
-        echo.info(f"Selected {selected_ext.upper()} format with {len(selected_files)} episodes")
+        echo.info(
+            f"Selected {selected_ext.upper()} format with {len(selected_files)} episodes"
+        )
 
     # Let user select starting episode from the chosen format
     index, _ = utils.select_options_interactive(
@@ -580,8 +675,12 @@ def batch_prepare_episodes(
     add_subtitles_to_mp4: bool = False,
 ) -> None:
     """Batch process TV show episodes with settings from first episode"""
+    global _batch_settings_cache
 
     echo.info("Configuring conversion settings using first episode...")
+
+    # Enable batch mode to cache settings
+    _batch_settings_cache = BatchProcessingSettings()
 
     # Process first episode to determine settings
     first_stream_media = prepare_file_to_stream(
@@ -602,6 +701,7 @@ def batch_prepare_episodes(
 
     if not remaining_episodes:
         echo.info("Only one episode to process.")
+        _batch_settings_cache = None  # Clear cache
         return
 
     # Ask user confirmation for batch processing
@@ -609,11 +709,12 @@ def batch_prepare_episodes(
         f"Apply the same settings to {len(remaining_episodes)} remaining episodes?"
     ):
         echo.info("Batch processing cancelled.")
+        _batch_settings_cache = None  # Clear cache
         return
 
     echo.info(f"Processing {len(remaining_episodes)} remaining episodes...")
 
-    # Process remaining episodes with same settings
+    # Process remaining episodes with cached settings
     for i, episode in enumerate(remaining_episodes, 2):
         echo.info(
             f"Processing episode {i}/{len(batch_info.episodes_to_process)}: {episode.name}"
@@ -622,11 +723,10 @@ def batch_prepare_episodes(
         try:
             episode_stream_media = prepare_file_to_stream(
                 media=episode,
-                audio_file=None,  # Use auto-detected settings
-                audio_lang=first_stream_media.subtitle_lang
-                or audio_lang,  # Use same language from first episode
-                subtitle_file=None,  # Use auto-detected settings
-                subtitle_lang=first_stream_media.subtitle_lang or subtitle_lang,
+                audio_file=audio_file,  # Use original parameters for consistency
+                audio_lang=audio_lang,
+                subtitle_file=subtitle_file,
+                subtitle_lang=subtitle_lang,
                 burn_subtitles=burn_subtitles,
                 add_subtitles_to_mp4=add_subtitles_to_mp4,
                 no_scan=True,  # Don't scan directory for each episode
@@ -636,6 +736,7 @@ def batch_prepare_episodes(
             echo.error(f"❌ Failed to process {episode.name}: {e}")
 
     echo.info("🎉 Batch processing completed!")
+    _batch_settings_cache = None  # Clear cache after completion
 
 
 def prepare_file_to_stream(
