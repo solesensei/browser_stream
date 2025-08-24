@@ -175,7 +175,9 @@ def nginx_command(
     nginx.reload()
 
     if not site_enabled.exists():
-        fs.create_symlink(symlink_path=site_enabled, target_path=site_available, sudo=True)
+        fs.create_symlink(
+            symlink_path=site_enabled, target_path=site_available, sudo=True
+        )
     echo.info("Nginx configuration generated successfully")
 
 
@@ -288,39 +290,62 @@ def stream_command(
 
         Stream media file using Plex:
         $ browser-streamer stream /path/to/media.mp4 --server=plex
-        
+
         Quick streaming without conversion:
         $ browser-streamer stream /path/to/media.mp4 --raw
-        
+
         Stream directory (scan for video files):
         $ browser-streamer stream /path/to/media/directory/
-        
+
         Scan for external audio/subtitle files for single movie:
         $ browser-streamer stream movie.mkv --scan-external
-        
+
         Prepare media for streaming without generating URLs:
         $ browser-streamer stream movie.mkv --prepare-only
     """
     with_nginx = server.lower() == "nginx"
     with_plex = server.lower() == "plex"
-    
+
     # Determine scanning behavior:
     # - Always scan if media is a directory
     # - For single files: scan only if --scan-external is used
     # - Don't scan if specific files provided or --raw mode
     is_directory = media.is_dir()
-    has_specific_files = (audio_file is not None or subtitle_file is not None)
+    has_specific_files = audio_file is not None or subtitle_file is not None
     should_scan = (is_directory or scan_external) and not has_specific_files and not raw
-    
+
     media = utils.resolve_path_pwd(media)
-    
+
     if prepare_only:
         if raw:
             # With --raw, no conversion needed, just inform user
             echo.info(f"Media file ready for raw streaming: {media}")
         else:
             # Only prepare/convert media, don't generate streaming URLs
-            from browser_stream import prepare_file_to_stream
+            from browser_stream import (
+                prepare_file_to_stream,
+                setup_batch_processing,
+                batch_prepare_episodes,
+            )
+
+            # Handle batch processing for TV shows
+            if media.is_dir():
+                batch_info = setup_batch_processing(media)
+
+                if batch_info:
+                    # Use batch processing method
+                    batch_prepare_episodes(
+                        batch_info=batch_info,
+                        audio_file=audio_file,
+                        audio_lang=audio_lang,
+                        subtitle_file=subtitle_file,
+                        subtitle_lang=subtitle_lang,
+                        burn_subtitles=burn_subtitles,
+                        add_subtitles_to_mp4=embed_subs,
+                    )
+                    return
+
+            # Standard single file processing
             stream_media = prepare_file_to_stream(
                 media=media,
                 audio_file=audio_file,

@@ -2,6 +2,7 @@
 from pathlib import Path
 import dataclasses
 import typer
+import typing as tp
 
 import browser_stream.utils as utils
 from browser_stream.helpers import (
@@ -19,6 +20,14 @@ from browser_stream.echo import echo
 
 
 conf = utils.Config.load()
+
+
+@dataclasses.dataclass  
+class BatchProcessingInfo:
+    """Information about TV show batch processing"""
+    directory: Path
+    episodes_to_process: list[Path]
+    starting_episode: Path
 
 
 @dataclasses.dataclass
@@ -54,6 +63,66 @@ def build_stream_url_plex(
     return utils.url_encode(plex.get_stream_url(media_file))
 
 
+def is_tv_show_directory(directory: Path) -> bool:
+    """Detect if directory contains multiple episodes (TV show) by finding common prefixes/suffixes"""
+    if not directory.is_dir():
+        return False
+    
+    fs = FS()
+    video_files = list(fs.get_video_files(directory, recursive_depth=0))
+    
+    # Need at least 2 video files
+    if len(video_files) < 2:
+        return False
+    
+    # Get file stems (names without extensions)
+    stems = [f.stem for f in video_files]
+    
+    # Find longest common prefix
+    def find_common_prefix(strings):
+        if not strings:
+            return ""
+        min_len = min(len(s) for s in strings)
+        for i in range(min_len):
+            if not all(s[i] == strings[0][i] for s in strings):
+                return strings[0][:i]
+        return strings[0][:min_len]
+    
+    # Find longest common suffix
+    def find_common_suffix(strings):
+        if not strings:
+            return ""
+        reversed_strings = [s[::-1] for s in strings]
+        common_prefix = find_common_prefix(reversed_strings)
+        return common_prefix[::-1]
+    
+    prefix = find_common_prefix(stems).rstrip()
+    suffix = find_common_suffix(stems).lstrip()
+    
+    # Remove common prefix/suffix to get the varying parts
+    varying_parts = []
+    for stem in stems:
+        part = stem
+        if prefix:
+            part = part[len(prefix):].lstrip()
+        if suffix:
+            part = part[:-len(suffix)].rstrip()
+        varying_parts.append(part)
+    
+    # Check if varying parts look like episode numbers/identifiers
+    # They should be short and mostly numeric/alphanumeric
+    episode_like = 0
+    for part in varying_parts:
+        if part and len(part) <= 10:  # Reasonable episode identifier length
+            # Count digits and common episode patterns
+            digit_count = sum(1 for c in part if c.isdigit())
+            if digit_count >= len(part) * 0.3:  # At least 30% digits
+                episode_like += 1
+    
+    # If most files have episode-like varying parts, it's probably a TV show
+    return episode_like >= len(video_files) * 0.7  # 70%+ files
+
+
 def select_video(
     media_path: Path,
 ) -> Path:
@@ -64,6 +133,8 @@ def select_video(
             raise Exit(
                 f"No video files found in directory: {media_path}. Check your media directory"
             )
+        
+        # Standard video selection
         index, _ = utils.select_options_interactive(
             [f"{f.relative_to(media_path)}" for f in video_files],
             option_name="Video",
@@ -384,6 +455,108 @@ def get_matched_media_stream_mp4(
     return None
 
 
+def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
+    """Handle TV show batch processing setup - returns BatchProcessingInfo if user wants batch processing"""
+    fs = FS()
+    video_files = sorted(fs.get_video_files(media_path, recursive_depth=0))
+    
+    if not video_files:
+        return None
+    
+    # Check if this looks like a TV show directory
+    if not is_tv_show_directory(media_path):
+        return None
+        
+    echo.info(f"Detected TV show directory with {len(video_files)} episodes")
+    
+    # Ask if user wants batch processing
+    if not utils.confirm("Do you want to batch process episodes from a starting point?"):
+        return None
+    
+    # Let user select starting episode
+    index, _ = utils.select_options_interactive(
+        [f"{f.relative_to(media_path)}" for f in video_files],
+        option_name="Starting Episode",
+        message="Select episode to start batch processing from",
+    )
+    
+    selected_episode = video_files[index]
+    episodes_to_process = video_files[index:]  # From selected to end
+    
+    echo.info(f"Will process {len(episodes_to_process)} episodes starting from: {selected_episode.name}")
+    echo.info("First episode will be used to configure settings for all episodes")
+    
+    # Return batch processing info
+    return BatchProcessingInfo(
+        directory=media_path,
+        episodes_to_process=episodes_to_process,
+        starting_episode=selected_episode,
+    )
+
+
+def batch_prepare_episodes(
+    batch_info: BatchProcessingInfo,
+    audio_file: Path | None = None,
+    audio_lang: str | None = None,
+    subtitle_file: Path | None = None,
+    subtitle_lang: str | None = None,
+    burn_subtitles: bool = False,
+    add_subtitles_to_mp4: bool = False,
+) -> None:
+    """Batch process TV show episodes with settings from first episode"""
+    
+    echo.info("Configuring conversion settings using first episode...")
+    
+    # Process first episode to determine settings
+    first_stream_media = prepare_file_to_stream(
+        media=batch_info.starting_episode,
+        audio_file=audio_file,
+        audio_lang=audio_lang,
+        subtitle_file=subtitle_file,
+        subtitle_lang=subtitle_lang,
+        burn_subtitles=burn_subtitles,
+        add_subtitles_to_mp4=add_subtitles_to_mp4,
+        no_scan=True,  # Don't scan for first episode since it's batch mode
+    )
+    
+    echo.info(f"✅ First episode prepared: {first_stream_media.path}")
+    
+    # Get remaining episodes (skip first)
+    remaining_episodes = batch_info.episodes_to_process[1:]
+    
+    if not remaining_episodes:
+        echo.info("Only one episode to process.")
+        return
+    
+    # Ask user confirmation for batch processing
+    if not utils.confirm(f"Apply the same settings to {len(remaining_episodes)} remaining episodes?"):
+        echo.info("Batch processing cancelled.")
+        return
+    
+    echo.info(f"Processing {len(remaining_episodes)} remaining episodes...")
+    
+    # Process remaining episodes with same settings
+    for i, episode in enumerate(remaining_episodes, 2):
+        echo.info(f"Processing episode {i}/{len(batch_info.episodes_to_process)}: {episode.name}")
+        
+        try:
+            episode_stream_media = prepare_file_to_stream(
+                media=episode,
+                audio_file=None,  # Use auto-detected settings
+                audio_lang=first_stream_media.subtitle_lang or audio_lang,  # Use same language from first episode
+                subtitle_file=None,  # Use auto-detected settings
+                subtitle_lang=first_stream_media.subtitle_lang or subtitle_lang,
+                burn_subtitles=burn_subtitles,
+                add_subtitles_to_mp4=add_subtitles_to_mp4,
+                no_scan=True,  # Don't scan directory for each episode
+            )
+            echo.info(f"✅ Episode prepared: {episode_stream_media.path}")
+        except Exception as e:
+            echo.error(f"❌ Failed to process {episode.name}: {e}")
+    
+    echo.info("🎉 Batch processing completed!")
+
+
 def prepare_file_to_stream(
     media: Path,
     audio_file: Path | None = None,
@@ -398,6 +571,7 @@ def prepare_file_to_stream(
     ffmpeg = Ffmpeg()
 
     if media.is_dir():
+        # For directories, just select a single video (no batch processing here)
         media_file = select_video(media)
     else:
         media_file = media

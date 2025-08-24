@@ -90,6 +90,9 @@ browser-streamer stream /path/to/movie.mp4 --raw
 
 # Prepare media for streaming without generating URLs (useful for batch processing)
 browser-streamer stream movie.mkv --prepare-only --audio-lang en --subtitle-lang en
+
+# Batch process TV show episodes (auto-detected)
+browser-streamer stream /path/to/tv-show-directory/ --prepare-only
 ```
 
 ### Nginx
@@ -157,6 +160,7 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
 - **Smart server selection**: `--server=nginx|plex` (default: nginx)
 - **Quick streaming mode**: `--raw` for instant streaming without conversion
 - **Preparation mode**: `--prepare-only` to convert media without generating streaming URLs
+- **TV show batch processing**: Auto-detects TV show directories and processes episodes from selected starting point
 - **Intuitive options**: `--raw`, `--embed-subs`, `--prepare-only` instead of verbose names
 - **Smart scanning**: Only scans directories when needed, use `--scan-external` for single files
 - **Better validation**: Clear error messages and input validation
