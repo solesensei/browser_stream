@@ -1,31 +1,28 @@
-import typing as tp
 import sys
+import typing as tp
 from pathlib import Path
-import typer
-import click
 
+import click
+import typer
+
+import browser_stream.config as config
+import browser_stream.utils as utils
 from browser_stream import (
+    FS,
+    Exit,
+    Ffmpeg,
+    Nginx,
+    PlexAPI,
+    conf,
     stream_nginx,
     stream_plex,
-    PlexAPI,
-    Exit,
-    exit_if,
-    Ffmpeg,
-    FS,
-    Nginx,
-    HTML,
-    conf,
 )
-
-import browser_stream.utils as utils
-import browser_stream.config as config
 from browser_stream.echo import echo, setup_logger
-
 
 app = typer.Typer(
     name="browser-streamer",
     help=f"""A CLI tool to prepare and manage media for streaming over HTTP using Nginx or Plex direct links.
-    
+
     \b
     [dim]Ver: {config.__version__}[/dim]
     """,
@@ -323,9 +320,9 @@ def stream_command(
         else:
             # Only prepare/convert media, don't generate streaming URLs
             from browser_stream import (
+                batch_prepare_episodes,
                 prepare_file_to_stream,
                 setup_batch_processing,
-                batch_prepare_episodes,
             )
 
             # Handle batch processing for TV shows
@@ -402,7 +399,5 @@ def run():
         if config.RAISE_EXCEPTIONS:
             raise
         echo.printc(f"{e.__class__.__name__}: {e}", color="red", bold=True)
-        echo.printc(
-            "Set RAISE_EXCEPTIONS=true environment variable to raise exceptions"
-        )
+        echo.printc("Set RAISE_EXCEPTIONS=true environment variable to raise exceptions")
         sys.exit(2)

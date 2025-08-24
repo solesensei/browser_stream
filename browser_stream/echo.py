@@ -1,8 +1,9 @@
 import functools
+import json
 import logging
 import sys
 import typing as tp
-import json
+
 import typer
 from rich.console import Console
 from rich.logging import RichHandler

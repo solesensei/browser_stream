@@ -1,0 +1,142 @@
+name: Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Lint with ruff
+      run: |
+        uvx ruff check . --output-format=github
+    
+    - name: Check formatting with ruff
+      run: |
+        uvx ruff format --check .
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+    
+    - name: Run tests with pytest
+      run: |
+        uv run pytest --cov=browser_stream --cov-report=xml --cov-report=term-missing -v
+    
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'  # Only upload once
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Set up Python 3.11
+      run: uv python install 3.11
+    
+    - name: Install dependencies and package
+      run: |
+        uv sync --dev
+        uv pip install -e .
+    
+    - name: Test CLI installation
+      run: |
+        uv run browser-streamer --help
+    
+    - name: Run integration tests (if available)
+      run: |
+        uv run pytest tests/ -m "integration" -v || echo "No integration tests found"
+      continue-on-error: true
+
+  security-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Set up Python 3.11
+      run: uv python install 3.11
+    
+    - name: Run safety check
+      run: |
+        uv sync
+        uvx safety check --json || echo "Safety check completed with warnings"
+      continue-on-error: true
+
+  test-coverage-report:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+    
+    - name: Set up Python 3.11
+      run: uv python install 3.11
+    
+    - name: Install dependencies
+      run: |
+        uv sync --dev
+    
+    - name: Generate coverage report
+      run: |
+        uv run pytest --cov=browser_stream --cov-report=html --cov-report=term-missing
+        echo "Coverage report generated in htmlcov/"
+    
+    - name: Upload coverage HTML report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ github.sha }}
+        path: htmlcov/
+        retention-days: 5

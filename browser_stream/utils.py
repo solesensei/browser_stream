@@ -1,22 +1,23 @@
-import json
-import typer
-import typing as tp
+import dataclasses
+import datetime as dt
 import functools
-import urllib.parse
+import json
 import os
+import secrets
 import shutil
-import chardet
-import click
+import subprocess
 import tempfile
 import textwrap
+import typing as tp
+import urllib.parse
 from pathlib import Path
-import datetime as dt
-from browser_stream.echo import echo
-import browser_stream.config as config
-import secrets
-import subprocess
-import dataclasses
 
+import chardet
+import click
+import typer
+
+import browser_stream.config as config
+from browser_stream.echo import echo
 
 if tp.TYPE_CHECKING:
     from browser_stream.helpers import FfmpegStream
@@ -269,7 +270,7 @@ class Config:
         if not path.exists():
             return Config()
         echo.debug(f"Loading configuration from {path}")
-        with open(path, "r") as file:
+        with open(path) as file:
             data = json.load(file)
         data["media_dir"] = Path(data["media_dir"]) if data["media_dir"] else None
         return Config(**data)

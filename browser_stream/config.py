@@ -9,7 +9,7 @@ def _env_flag(name: str, default: bool = False) -> bool:
 
 
 # Typer
-CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
 # Environment variables
 DEBUG = _env_flag("DEBUG")

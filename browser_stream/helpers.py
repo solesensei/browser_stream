@@ -1,18 +1,18 @@
 #!/usr/local/bin/python
-import httpx
-from pathlib import Path
-import shutil
-import typing as tp
-import functools
-import urllib.parse
 import dataclasses
-import re
-import tempfile
 import datetime as dt
-import typer
+import functools
+import re
+import shutil
+import tempfile
+import typing as tp
+import urllib.parse
+from pathlib import Path
 
-import browser_stream.utils as utils
+import httpx
+
 import browser_stream.config as config
+import browser_stream.utils as utils
 from browser_stream.echo import echo
 
 
@@ -338,7 +338,7 @@ class FfmpegMediaInfo:
         last_stream_info: FfmpegStream | None = None
         streams: list[FfmpegStream] = []
 
-        for i, line in enumerate(lines):
+        for _i, line in enumerate(lines):
             line = line.strip()
             if "Estimating duration from bitrate" in line:
                 continue
@@ -347,18 +347,14 @@ class FfmpegMediaInfo:
                 if match:
                     filename = Path(match.group(1))
                 else:
-                    echo.warning(
-                        f"{filename} | Cannot parse filename from line: {line}"
-                    )
+                    echo.warning(f"{filename} | Cannot parse filename from line: {line}")
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
                 if match:
                     if match.group(1) != "N/A":
                         duration = utils.parse_duration(match.group(1))
                 else:
-                    echo.warning(
-                        f"{filename} | Cannot parse duration from line: {line}"
-                    )
+                    echo.warning(f"{filename} | Cannot parse duration from line: {line}")
             if "comment" in line:
                 match = re.search(r"comment\s+:\s+(.+)", line)
                 if match:
@@ -666,9 +662,7 @@ class Ffmpeg:
         bitrate: str | None = None,
     ) -> Path:
         media_file_info = self.get_media_info(media_file)
-        audio = next(
-            (s for s in media_file_info.audios if s.index == stream_index), None
-        )
+        audio = next((s for s in media_file_info.audios if s.index == stream_index), None)
         if audio is None:
             audio_streams = [s.index for s in media_file_info.audios]
             raise Exit(
@@ -677,9 +671,9 @@ class Ffmpeg:
         if audio_lang and audio.language and audio.language[:2] != audio_lang[:2]:
             echo.warning(f"Audio language mismatch: {audio.language} != {audio_lang}")
         is_copy = codec is None and bitrate is None
-        audio_lang = (
-            audio_lang or audio.language or utils.prompt_audio(audio)
-        ).lower()[:3]
+        audio_lang = (audio_lang or audio.language or utils.prompt_audio(audio)).lower()[
+            :3
+        ]
         audio_codec = codec or audio.codec
         echo.info(
             f"Extracting audio: {audio.title} [{audio_lang}] from {media_file} {'(copy)' if is_copy else f'convert to {audio_codec}'}"
@@ -781,7 +775,7 @@ class FS:
         files: list[Path] = []
         for path in directory.iterdir():
             # Skip hidden files and system files
-            if path.name.startswith('.'):
+            if path.name.startswith("."):
                 continue
             if path.is_dir() and max_dirs > 0 and recursive_depth > 0:
                 max_dirs -= 1
@@ -845,9 +839,7 @@ class FS:
             with tempfile.NamedTemporaryFile("w", delete=False) as tmp:
                 tmp.write(content + "\n")
             command = ["sudo", "-S", "mv", tmp.name, path.as_posix()]
-            password = utils.get_sudo_pass(
-                command, what_happens="File would be created"
-            )
+            password = utils.get_sudo_pass(command, what_happens="File would be created")
             utils.run_process(command, input_=password)
         else:
             with path.open("w") as f:
@@ -861,7 +853,14 @@ class FS:
             raise Exit(f"Target path does not exist: {target_path}")
         echo.info(f"Creating symlink: {symlink_path} -> {target_path}")
         if sudo:
-            command = ["sudo", "-S", "ln", "-sf", target_path.as_posix(), symlink_path.as_posix()]
+            command = [
+                "sudo",
+                "-S",
+                "ln",
+                "-sf",
+                target_path.as_posix(),
+                symlink_path.as_posix(),
+            ]
             password = utils.get_sudo_pass(
                 command, what_happens="Symlink would be created"
             )
@@ -892,9 +891,7 @@ class FS:
         echo.info(f"Removing file: {path}")
         if sudo:
             command = ["sudo", "-S", "rm", path.as_posix()]
-            password = utils.get_sudo_pass(
-                command, what_happens="File would be removed"
-            )
+            password = utils.get_sudo_pass(command, what_happens="File would be removed")
             utils.run_process(command, input_=password)
         else:
             path.unlink()
