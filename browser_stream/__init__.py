@@ -508,6 +508,12 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
 
     echo.info(f"Detected TV show directory with {len(video_files)} episodes")
 
+    # Ask if user wants batch processing first
+    if not utils.confirm(
+        "Do you want to batch process episodes from a starting point?"
+    ):
+        return None
+
     # Filter out processed files (stream variants) and group by format
     filtered_files = []
     for video_file in video_files:
@@ -540,12 +546,6 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
         selected_ext = list(format_groups.keys())[format_index]
         selected_files = format_groups[selected_ext]
         echo.info(f"Selected {selected_ext.upper()} format with {len(selected_files)} episodes")
-
-    # Ask if user wants batch processing
-    if not utils.confirm(
-        "Do you want to batch process episodes from a starting point?"
-    ):
-        return None
 
     # Let user select starting episode from the chosen format
     index, _ = utils.select_options_interactive(
