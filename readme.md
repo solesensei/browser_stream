@@ -40,7 +40,6 @@ graph TB
     Browser -->|"HTTPS + Token"| PlexServer
     
     NginxServer --> ConvertedMedia
-    PlexServer --> SourceMedia
     PlexServer --> ConvertedMedia
     
     CLI --> FFmpeg
