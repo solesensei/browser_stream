@@ -154,16 +154,14 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
 
 ## CLI Features
 
-### Improved User Experience (v0.2.0)
-
-- **Positional media path**: `browser-streamer stream /path/to/file.mp4` (no more `--media`)
-- **Smart server selection**: `--server=nginx|plex` (default: nginx)
-- **Quick streaming mode**: `--raw` for instant streaming without conversion
-- **Preparation mode**: `--prepare-only` to convert media without generating streaming URLs
-- **TV show batch processing**: Auto-detects TV show directories and processes episodes from selected starting point
-- **Intuitive options**: `--raw`, `--embed-subs`, `--prepare-only` instead of verbose names
-- **Smart scanning**: Only scans directories when needed, use `--scan-external` for single files
-- **Better validation**: Clear error messages and input validation
+- **Simple media streaming**: Stream any video file with `browser-streamer stream /path/to/file.mp4`
+- **Multiple server backends**: Choose between nginx or Plex streaming servers with `--server=nginx|plex`
+- **Instant streaming**: Use `--raw` to stream files immediately without format conversion
+- **Media preparation**: Convert and optimize media files with `--prepare-only` without starting streams
+- **Batch TV show processing**: Automatically detect and process entire TV show directories from any starting episode
+- **Subtitle embedding**: Embed subtitles directly into video streams with `--embed-subs`
+- **Intelligent file scanning**: Automatically scans directories or use `--scan-external` for individual files
+- **Input validation**: Comprehensive error checking with clear, actionable error messages
 
 ### Command Reference
 
