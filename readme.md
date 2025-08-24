@@ -10,6 +10,76 @@ A command-line tool for streaming local media files directly in web browsers. It
 
 This tool is designed to work **with original quality** (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configure Plex Server. See [Prerequisites](#prerequisites) for more details.
 
+## How It Works
+
+<details><summary>Streaming Architecture Diagram</summary>
+
+```mermaid
+graph TB
+    subgraph "Client"
+        Browser["Web Browser<br/>Watch Party Apps"]
+    end
+
+    subgraph "Streaming Servers"
+        NginxServer["Nginx Server<br/>X-Token Auth"]
+        PlexServer["Plex Server<br/>X-Plex-Token Auth"]
+    end
+
+    subgraph "Media Storage"
+        SourceMedia["Source Media<br/>.mkv, .mp4, .avi, etc."]
+        ConvertedMedia["Browser Compatible<br/>.mp4, .aac, .vtt, .html"]
+    end
+
+    subgraph "Browser Streamer Tool"
+        CLI[CLI Interface]
+        FFmpeg[FFmpeg Processor]
+    end
+
+    %% Main Flow
+    Browser -->|"HTTPS + Token"| NginxServer
+    Browser -->|"HTTPS + Token"| PlexServer
+    
+    NginxServer --> ConvertedMedia
+    PlexServer --> SourceMedia
+    PlexServer --> ConvertedMedia
+    
+    CLI --> FFmpeg
+    FFmpeg --> SourceMedia
+    FFmpeg --> ConvertedMedia
+    
+    CLI -->|Configure| NginxServer
+    CLI -->|Configure| PlexServer
+    CLI -->|"Generate URLs"| Browser
+
+    %% Styling
+    classDef client fill:#e3f2fd
+    classDef server fill:#f3e5f5
+    classDef storage fill:#e8f5e8
+    classDef tool fill:#fff3e0
+
+    class Browser client
+    class NginxServer,PlexServer server
+    class SourceMedia,ConvertedMedia storage
+    class CLI,FFmpeg tool
+```
+
+</details>
+
+**Nginx Mode:**
+- Browser requests media with secure X-Token
+- Nginx validates token and serves files directly
+- No transcoding = original quality + high performance
+
+**Plex Mode:**
+- Browser uses Plex direct URLs with X-Plex-Token
+- Bypasses Plex transcoding for original quality
+- Works with existing Plex media libraries
+
+**Media Processing:**
+- FFmpeg converts files to browser-compatible formats (MP4/AAC/VTT)
+- Files are pre-processed, not transcoded during streaming
+- Maintains original quality while ensuring compatibility
+
 ## Features
 
 - **Simple media streaming**: Stream any video file with `browser-streamer stream /path/to/file.mp4`
