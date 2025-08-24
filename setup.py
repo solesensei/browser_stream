@@ -2,7 +2,7 @@
 import pkg_resources
 from setuptools import find_packages, setup
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 with open("requirements.txt") as requirements_txt:
     install_requires = [
