@@ -37,6 +37,7 @@ class BatchProcessingSettings:
     subtitle_stream_index: int | None = None  # Index of selected subtitle stream
     subtitle_lang: str | None = None
     external_subtitle_file: Path | None = None
+    convert_subtitle_to_vtt: bool | None = None  # Whether to convert subtitles to VTT
     burn_subtitles: bool = False
     add_subtitles_to_mp4: bool = False
 
@@ -755,6 +756,7 @@ def prepare_file_to_stream(
     add_subtitles_to_mp4: bool = False,
     no_scan: bool = False,
 ) -> StreamMedia:
+    global _batch_settings_cache
     fs = FS()
     ffmpeg = Ffmpeg()
 
@@ -854,10 +856,24 @@ def prepare_file_to_stream(
                 f"VTT subtitle file already exists: {vtt_subtitle_file}. Using it for streaming"
             )
             subtitle_file = vtt_subtitle_file
-        elif utils.confirm(
-            f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
-        ):
-            subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
+        else:
+            # Use cached decision or ask user
+            if _batch_settings_cache is not None and _batch_settings_cache.convert_subtitle_to_vtt is not None:
+                convert_to_vtt = _batch_settings_cache.convert_subtitle_to_vtt
+                if convert_to_vtt:
+                    echo.info("Using cached decision: converting subtitle to VTT")
+                else:
+                    echo.info("Using cached decision: not converting subtitle to VTT")
+            else:
+                convert_to_vtt = utils.confirm(
+                    f"Subtitle file is not in VTT format: {subtitle_file.name} (supported in HTML5). Do you want to convert it?"
+                )
+                # Cache the decision
+                if _batch_settings_cache is not None:
+                    _batch_settings_cache.convert_subtitle_to_vtt = convert_to_vtt
+            
+            if convert_to_vtt:
+                subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
 
     return StreamMedia(
         path=media_file,
