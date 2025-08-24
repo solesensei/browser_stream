@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 from pathlib import Path
 import dataclasses
+import re
 import typer
 import typing as tp
 
@@ -65,7 +66,7 @@ def build_stream_url_plex(
 
 
 def is_tv_show_directory(directory: Path) -> bool:
-    """Detect if directory contains multiple episodes (TV show) by finding common prefixes/suffixes"""
+    """Detect if directory contains multiple episodes (TV show) by finding common prefixes and episode numbers"""
     if not directory.is_dir():
         return False
 
@@ -90,44 +91,32 @@ def is_tv_show_directory(directory: Path) -> bool:
                 return strings[0][:i]
         return strings[0][:min_len]
 
-    # Find longest common suffix
-    def find_common_suffix(strings):
-        if not strings:
-            return ""
-        reversed_strings = [s[::-1] for s in strings]
-        common_prefix = find_common_prefix(reversed_strings)
-        return common_prefix[::-1]
+    prefix = find_common_prefix(stems)
+    echo.debug(f"Common prefix: '{prefix}'")
 
-    prefix = find_common_prefix(stems).rstrip()
-    suffix = find_common_suffix(stems).lstrip()
-    echo.debug(f"Common prefix: '{prefix}', Common suffix: '{suffix}'")
-
-    # Remove common prefix/suffix to get the varying parts
-    varying_parts = []
+    # Extract episode numbers from remaining parts after prefix
+    episode_numbers = []
     for stem in stems:
-        part = stem
-        if prefix:
-            part = part[len(prefix) :].lstrip()
-        if suffix:
-            part = part[: -len(suffix)].rstrip()
-        varying_parts.append(part)
+        if len(stem) > len(prefix):
+            remaining_part = stem[len(prefix) :]
+            # Find first number in the remaining part
+            numbers = re.findall(r"\d+", remaining_part)
+            if numbers:
+                try:
+                    episode_numbers.append(int(numbers[0]))
+                except ValueError:
+                    continue
 
-    echo.debug(f"Varying parts: {len(varying_parts)}")
+    echo.debug(f"Episode numbers found: {episode_numbers}")
 
-    # Check if varying parts look like episode numbers/identifiers
-    # They should be short and mostly numeric/alphanumeric
-    episode_like = 0
-    for part in varying_parts:
-        if part and len(part) <= 10:  # Reasonable episode identifier length
-            # Count digits and common episode patterns
-            digit_count = sum(1 for c in part if c.isdigit())
-            if digit_count >= len(part) * 0.3:  # At least 30% digits
-                episode_like += 1
+    # Check if we found episode numbers for most files and they vary
+    if len(episode_numbers) >= len(video_files) * 0.7:  # 70%+ files have numbers
+        # Check that numbers are different (indicates episodes, not just quality markers)
+        unique_numbers = set(episode_numbers)
+        if len(unique_numbers) >= len(episode_numbers) * 0.7:  # 70%+ are unique
+            return True
 
-    echo.debug(f"Episode-like varying parts: {episode_like}")
-
-    # If most files have episode-like varying parts, it's probably a TV show
-    return episode_like >= len(video_files) * 0.7  # 70%+ files
+    return False
 
 
 def select_video(
