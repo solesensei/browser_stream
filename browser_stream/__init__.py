@@ -31,9 +31,9 @@ class BatchProcessingSettings:
     audio_lang: str | None = None
     external_audio_file: Path | None = None
     external_audio_stream_index: int | None = None
-    convert_audio_to_aac: bool = False
+    convert_audio_to_aac: bool | None = None
 
-    select_subtitles: bool = False  # Whether to select subtitles at all
+    select_subtitles: bool | None = None  # Whether to select subtitles at all
     subtitle_stream_index: int | None = None  # Index of selected subtitle stream
     subtitle_lang: str | None = None
     external_subtitle_file: Path | None = None
@@ -342,12 +342,15 @@ def select_audio(
 
         if needs_conversion:
             # Use cached decision or ask user
-            if _batch_settings_cache is not None and hasattr(
-                _batch_settings_cache, "convert_audio_to_aac"
+            if (
+                _batch_settings_cache is not None
+                and _batch_settings_cache.convert_audio_to_aac is not None
             ):
                 convert_audio = _batch_settings_cache.convert_audio_to_aac
                 if convert_audio:
                     echo.info("Using cached decision: converting audio to AAC")
+                else:
+                    echo.info("Using cached decision: not converting audio")
             else:
                 convert_audio = utils.confirm(
                     f"Audio codec is not {config.BROWSER_AUDIO_CODEC.upper()}: {audio_media_stream_selected.codec}. Do you want to convert it?"
@@ -464,12 +467,15 @@ def select_subtitle(
     select_subs = False
     if subtitles or external_subtitles:
         # Use cached decision or ask user
-        if _batch_settings_cache is not None and hasattr(
-            _batch_settings_cache, "select_subtitles"
+        if (
+            _batch_settings_cache is not None
+            and _batch_settings_cache.select_subtitles is not None
         ):
             select_subs = _batch_settings_cache.select_subtitles
             if select_subs:
                 echo.info("Using cached decision: selecting subtitles")
+            else:
+                echo.info("Using cached decision: not selecting subtitles")
         else:
             select_subs = utils.confirm("Select subtitles?")
             # Cache the decision
