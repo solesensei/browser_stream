@@ -331,6 +331,7 @@ def stream_command(
             # Handle batch processing for TV shows
             if media.is_dir():
                 batch_info = setup_batch_processing(media)
+                echo.debug(f"Batch processing info: {batch_info}")
 
                 if batch_info:
                     # Use batch processing method
