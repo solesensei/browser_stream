@@ -135,7 +135,7 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
     ```bash
     sudo apt update && sudo apt install certbot python3-certbot-nginx -y
     sudo systemctl stop nginx
-    sudo certbot certonly --standalone -d your-domain.com
+    sudo certbot certonly --standalone -d your-domain.com  # 80 port should be opened by default and port forwarding configured
     ```
 3. Configure Nginx to use the certificate:
     ```bash
