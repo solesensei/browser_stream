@@ -1,24 +1,24 @@
 #!/usr/local/bin/python
-from pathlib import Path
 import dataclasses
 import re
-import typer
 import typing as tp
+from pathlib import Path
 
+import typer
+
+import browser_stream.config as config
 import browser_stream.utils as utils
+from browser_stream.echo import echo
 from browser_stream.helpers import (
     FS,
-    Ffmpeg,
-    PlexAPI,
-    Nginx,
     HTML,
-    FfmpegStream,
     Exit,
+    Ffmpeg,
+    FfmpegStream,
+    Nginx,
+    PlexAPI,
     exit_if,
 )
-import browser_stream.config as config
-from browser_stream.echo import echo
-
 
 conf = utils.Config.load()
 
@@ -49,9 +49,7 @@ class BatchProcessingInfo:
     directory: Path
     episodes_to_process: list[Path]
     starting_episode: Path
-    settings: BatchProcessingSettings | None = (
-        None  # Cached settings from first episode
-    )
+    settings: BatchProcessingSettings | None = None  # Cached settings from first episode
 
 
 @dataclasses.dataclass
@@ -178,9 +176,7 @@ def is_tv_show_directory(directory: Path) -> bool:
 
     # Check if we found episode numbers for most files and they vary
     # Use unique episodes vs filtered stems (not all video files)
-    if (
-        len(episode_numbers) >= len(stems) * 0.5
-    ):  # 50%+ files have numbers (more lenient)
+    if len(episode_numbers) >= len(stems) * 0.5:  # 50%+ files have numbers (more lenient)
         # Check that we have reasonable number of unique episodes
         if len(episode_numbers) >= 2:  # At least 2 different episodes
             return True
@@ -270,9 +266,7 @@ def select_audio(
     if scan_directory:
         external_audio_files = sorted(fs.get_audio_files(media_file.parent))
         external_audio_files = [
-            f
-            for f in external_audio_files
-            if f.stem.split(".", 1)[0] in media_file.stem
+            f for f in external_audio_files if f.stem.split(".", 1)[0] in media_file.stem
         ] or external_audio_files
         if len(external_audio_files) > 10:
             echo.warning(
@@ -337,9 +331,7 @@ def select_audio(
             return audio_aac, audio_lang
 
         # Check if audio conversion is needed
-        needs_conversion = (
-            audio_media_stream_selected.codec != config.BROWSER_AUDIO_CODEC
-        )
+        needs_conversion = audio_media_stream_selected.codec != config.BROWSER_AUDIO_CODEC
 
         if needs_conversion:
             # Use cached decision or ask user
@@ -508,9 +500,7 @@ def select_subtitle(
             # Cache the selection
             if _batch_settings_cache is not None:
                 _batch_settings_cache.subtitle_stream_index = index
-        media_stream_subtitle = (
-            subtitles[index].index if index < len(subtitles) else None
-        )
+        media_stream_subtitle = subtitles[index].index if index < len(subtitles) else None
         external_subtitle_file, subtitle_external_stream = (
             external_subtitles[index - len(subtitles)]
             if index >= len(subtitles)
@@ -609,9 +599,7 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
     echo.info(f"Detected TV show directory with {len(video_files)} episodes")
 
     # Ask if user wants batch processing first
-    if not utils.confirm(
-        "Do you want to batch process episodes from a starting point?"
-    ):
+    if not utils.confirm("Do you want to batch process episodes from a starting point?"):
         return None
 
     # Filter out processed files (stream variants) and group by format
@@ -768,9 +756,7 @@ def prepare_file_to_stream(
 
     ffmpeg.print_media_info(media_file)
     # Only scan directory if no specific files are provided and not explicitly disabled
-    should_scan_directory = not no_scan and (
-        audio_file is None and subtitle_file is None
-    )
+    should_scan_directory = not no_scan and (audio_file is None and subtitle_file is None)
 
     selected_audio, audio_lang = select_audio(
         media_file=media_file,
@@ -811,9 +797,7 @@ def prepare_file_to_stream(
         media_file=media_file,
         audio_file=audio_file,
         audio_lang=audio_lang,
-        audio_stream=selected_audio
-        if isinstance(selected_audio, FfmpegStream)
-        else None,
+        audio_stream=selected_audio if isinstance(selected_audio, FfmpegStream) else None,
         subtitle_file=subtitle_file if add_subtitles_to_mp4 else None,
         subtitle_lang=subtitle_lang,
         burn_subtitles=burn_subtitles,
@@ -843,11 +827,7 @@ def prepare_file_to_stream(
         echo.info(f"Using existing file: {output_file.name}")
         media_file = output_file
 
-    if (
-        subtitle_file
-        and not burn_subtitles
-        and fs.get_extension(subtitle_file) != "vtt"
-    ):
+    if subtitle_file and not burn_subtitles and fs.get_extension(subtitle_file) != "vtt":
         vtt_subtitle_file = subtitle_file.with_suffix(".vtt")
         if vtt_subtitle_file.exists() and utils.confirm(
             f"VTT subtitle file already exists: {vtt_subtitle_file.name}. Do you want to use it?"
@@ -858,7 +838,10 @@ def prepare_file_to_stream(
             subtitle_file = vtt_subtitle_file
         else:
             # Use cached decision or ask user
-            if _batch_settings_cache is not None and _batch_settings_cache.convert_subtitle_to_vtt is not None:
+            if (
+                _batch_settings_cache is not None
+                and _batch_settings_cache.convert_subtitle_to_vtt is not None
+            ):
                 convert_to_vtt = _batch_settings_cache.convert_subtitle_to_vtt
                 if convert_to_vtt:
                     echo.info("Using cached decision: converting subtitle to VTT")
@@ -871,9 +854,11 @@ def prepare_file_to_stream(
                 # Cache the decision
                 if _batch_settings_cache is not None:
                     _batch_settings_cache.convert_subtitle_to_vtt = convert_to_vtt
-            
+
             if convert_to_vtt:
-                subtitle_file = ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang)
+                subtitle_file = ffmpeg.convert_subtitle_to_vtt(
+                    subtitle_file, subtitle_lang
+                )
 
     return StreamMedia(
         path=media_file,
@@ -991,10 +976,66 @@ def stream_plex(
     """
     echo.info("Prepare media file to stream with Plex")
     fs = FS()
-    ffmpeg = Ffmpeg()
     html = HTML()
 
     if not conf.plex_x_token:
         raise typer.BadParameter(
             "Plex X-Token not found, run `browser-streamer setup plex` first"
         )
+    if not conf.host_url:
+        raise typer.BadParameter(
+            "Plex host URL not found, run `browser-streamer setup plex` first"
+        )
+
+    if media.suffix == ".html":
+        raise typer.BadParameter(
+            "HTML can't be used directly, use video file", param_hint="--media"
+        )
+
+    if not do_not_convert:
+        stream_media = prepare_file_to_stream(
+            media=media,
+            audio_file=None,  # Plex doesn't support external audio files
+            audio_lang=audio_lang,
+            subtitle_file=subtitle_file,
+            subtitle_lang=subtitle_lang,
+            burn_subtitles=burn_subtitles,
+            add_subtitles_to_mp4=True,  # Always embed subtitles for Plex
+            no_scan=no_scan,
+        )
+        media = stream_media.path
+        subtitle_file = stream_media.subtitle_path
+        subtitle_lang = stream_media.subtitle_lang
+        burn_subtitles = stream_media.subtitles_burned
+
+    # Check if media file exists on Plex server
+    try:
+        plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
+        stream_url = plex.get_stream_url(media)
+    except Exit as e:
+        echo.error(f"Failed to get Plex stream URL: {e.message}")
+        echo.info(
+            "Make sure the media file is in a Plex library and the server is accessible"
+        )
+        raise
+
+    if subtitle_file and not burn_subtitles:
+        echo.info(
+            f"Create HTML file with video and subtitles: {media.with_suffix('.html')}"
+        )
+        # For Plex, we need to use the direct stream URL, not build our own
+        html_data = html.get_video_html_with_subtitles(
+            video_url=stream_url,
+            subtitles_url=build_stream_url_plex(subtitle_file),
+            language=subtitle_lang or "Unknown",
+        )
+        html_file = media.with_suffix(".html")
+        fs.write_file(html_file, html_data)
+        echo.info(f"HTML file created: {html_file}")
+
+    echo.info("Preparation done")
+    echo.printc("Stream media file using Plex server", bold=True)
+    echo.print(typer.style("File: ", bold=True) + f"'{media.as_posix()}'")
+    echo.print(
+        typer.style("URL: ", bold=True) + typer.style(stream_url, fg="blue", bold=True)
+    )
