@@ -508,21 +508,54 @@ def setup_batch_processing(media_path: Path) -> BatchProcessingInfo | None:
 
     echo.info(f"Detected TV show directory with {len(video_files)} episodes")
 
+    # Filter out processed files (stream variants) and group by format
+    filtered_files = []
+    for video_file in video_files:
+        # Skip already processed variants (stream files)
+        if '.stream' in video_file.stem:
+            continue
+        filtered_files.append(video_file)
+    
+    # Group filtered files by format
+    format_groups = {}
+    for video_file in filtered_files:
+        ext = video_file.suffix.lower()
+        if ext not in format_groups:
+            format_groups[ext] = []
+        format_groups[ext].append(video_file)
+
+    # If multiple formats, let user choose
+    selected_files = filtered_files
+    if len(format_groups) > 1:
+        format_options = []
+        for ext, files in format_groups.items():
+            format_options.append(f"{ext.upper()} ({len(files)} files)")
+        
+        format_index, _ = utils.select_options_interactive(
+            format_options,
+            option_name="Video Format",
+            message="Multiple formats detected. Choose which format to process:",
+        )
+        
+        selected_ext = list(format_groups.keys())[format_index]
+        selected_files = format_groups[selected_ext]
+        echo.info(f"Selected {selected_ext.upper()} format with {len(selected_files)} episodes")
+
     # Ask if user wants batch processing
     if not utils.confirm(
         "Do you want to batch process episodes from a starting point?"
     ):
         return None
 
-    # Let user select starting episode
+    # Let user select starting episode from the chosen format
     index, _ = utils.select_options_interactive(
-        [f"{f.relative_to(media_path)}" for f in video_files],
+        [f"{f.relative_to(media_path)}" for f in selected_files],
         option_name="Starting Episode",
         message="Select episode to start batch processing from",
     )
 
-    selected_episode = video_files[index]
-    episodes_to_process = video_files[index:]  # From selected to end
+    selected_episode = selected_files[index]
+    episodes_to_process = selected_files[index:]  # From selected to end
 
     echo.info(
         f"Will process {len(episodes_to_process)} episodes starting from: {selected_episode.name}"
