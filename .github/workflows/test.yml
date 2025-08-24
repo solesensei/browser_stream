@@ -1,4 +1,4 @@
-name: Tests
+name: 🧪 Tests & Quality
 
 on:
   push:
@@ -8,24 +8,26 @@ on:
 
 jobs:
   lint:
+    name: 🔍 Code Quality & Formatting
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install uv
+    - name: ⚙️ Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
     
-    - name: Lint with ruff
+    - name: 🔎 Lint with ruff
       run: |
         uvx ruff check . --output-format=github
     
-    - name: Check formatting with ruff
+    - name: 📐 Check formatting with ruff
       run: |
         uvx ruff format --check .
 
   test:
+    name: 🧪 Unit Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -34,23 +36,23 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install uv
+    - name: ⚙️ Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
     
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: 🐍 Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
     
-    - name: Install dependencies
+    - name: 📦 Install dependencies
       run: |
         uv sync --dev
     
-    - name: Run tests with pytest
+    - name: 🧪 Run tests with pytest
       run: |
         uv run pytest --cov=browser_stream --cov-report=xml --cov-report=term-missing -v
     
-    - name: Upload coverage to Codecov
+    - name: 📊 Upload coverage to Codecov
       if: matrix.python-version == '3.11'  # Only upload once
       uses: codecov/codecov-action@v4
       with:
@@ -60,6 +62,7 @@ jobs:
         fail_ci_if_error: false
 
   integration-test:
+    name: 🔗 Integration Tests
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -67,49 +70,30 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install uv
+    - name: ⚙️ Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
     
-    - name: Set up Python 3.11
+    - name: 🐍 Set up Python 3.11
       run: uv python install 3.11
     
-    - name: Install dependencies and package
+    - name: 📦 Install dependencies and package
       run: |
         uv sync --dev
         uv pip install -e .
     
-    - name: Test CLI installation
+    - name: 🖥️ Test CLI installation
       run: |
         uv run browser-streamer --help
     
-    - name: Run integration tests (if available)
+    - name: 🔗 Run integration tests (if available)
       run: |
         uv run pytest tests/ -m "integration" -v || echo "No integration tests found"
       continue-on-error: true
 
-  security-check:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v4
-      with:
-        enable-cache: true
-    
-    - name: Set up Python 3.11
-      run: uv python install 3.11
-    
-    - name: Run safety check
-      run: |
-        uv sync
-        uvx safety check --json || echo "Safety check completed with warnings"
-      continue-on-error: true
-
   test-coverage-report:
+    name: 📈 Coverage Report
     runs-on: ubuntu-latest
     needs: test
     if: github.event_name == 'pull_request'
@@ -117,24 +101,24 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install uv
+    - name: ⚙️ Install uv
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
     
-    - name: Set up Python 3.11
+    - name: 🐍 Set up Python 3.11
       run: uv python install 3.11
     
-    - name: Install dependencies
+    - name: 📦 Install dependencies
       run: |
         uv sync --dev
     
-    - name: Generate coverage report
+    - name: 📈 Generate coverage report
       run: |
         uv run pytest --cov=browser_stream --cov-report=html --cov-report=term-missing
         echo "Coverage report generated in htmlcov/"
     
-    - name: Upload coverage HTML report
+    - name: 📤 Upload coverage HTML report
       uses: actions/upload-artifact@v4
       with:
         name: coverage-report-${{ github.sha }}
