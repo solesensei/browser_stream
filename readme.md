@@ -87,6 +87,9 @@ browser-streamer stream /path/to/movie.mp4 --embed-subs --subtitle-file subs.srt
 
 # Raw streaming (no conversion, for supported formats)
 browser-streamer stream /path/to/movie.mp4 --raw
+
+# Prepare media for streaming without generating URLs (useful for batch processing)
+browser-streamer stream movie.mkv --prepare-only --audio-lang en --subtitle-lang en
 ```
 
 ### Nginx
@@ -153,7 +156,8 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
 - **Positional media path**: `browser-streamer stream /path/to/file.mp4` (no more `--media`)
 - **Smart server selection**: `--server=nginx|plex` (default: nginx)
 - **Quick streaming mode**: `--raw` for instant streaming without conversion
-- **Intuitive options**: `--raw`, `--embed-subs` instead of verbose names
+- **Preparation mode**: `--prepare-only` to convert media without generating streaming URLs
+- **Intuitive options**: `--raw`, `--embed-subs`, `--prepare-only` instead of verbose names
 - **Smart scanning**: Only scans directories when needed, use `--scan-external` for single files
 - **Better validation**: Clear error messages and input validation
 

@@ -272,6 +272,11 @@ def stream_command(
         help="Scan directory for external audio/subtitle files when single file provided",
         show_default=False,
     ),
+    prepare_only: bool = typer.Option(
+        False,
+        help="Only prepare/convert media files, don't generate streaming URLs",
+        show_default=False,
+    ),
 ):
     """Stream media file using Nginx or Plex
 
@@ -292,6 +297,9 @@ def stream_command(
         
         Scan for external audio/subtitle files for single movie:
         $ browser-streamer stream movie.mkv --scan-external
+        
+        Prepare media for streaming without generating URLs:
+        $ browser-streamer stream movie.mkv --prepare-only
     """
     with_nginx = server.lower() == "nginx"
     with_plex = server.lower() == "plex"
@@ -305,7 +313,28 @@ def stream_command(
     should_scan = (is_directory or scan_external) and not has_specific_files and not raw
     
     media = utils.resolve_path_pwd(media)
-    if with_nginx:
+    
+    if prepare_only:
+        if raw:
+            # With --raw, no conversion needed, just inform user
+            echo.info(f"Media file ready for raw streaming: {media}")
+        else:
+            # Only prepare/convert media, don't generate streaming URLs
+            from browser_stream import prepare_file_to_stream
+            stream_media = prepare_file_to_stream(
+                media=media,
+                audio_file=audio_file,
+                audio_lang=audio_lang,
+                subtitle_file=subtitle_file,
+                subtitle_lang=subtitle_lang,
+                burn_subtitles=burn_subtitles,
+                add_subtitles_to_mp4=embed_subs,
+                no_scan=not should_scan,
+            )
+            echo.info(f"Media prepared: {stream_media.path}")
+            if stream_media.subtitle_path:
+                echo.info(f"Subtitles prepared: {stream_media.subtitle_path}")
+    elif with_nginx:
         stream_nginx(
             media=media,
             subtitle_file=subtitle_file,
