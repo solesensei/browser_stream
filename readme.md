@@ -2,27 +2,32 @@
 
 ![version](https://img.shields.io/badge/version-v0.2.0-blue.svg)
 
-This tool assists in preparing local media and configuring Nginx/Plex for HTTP streaming.
-It generates direct URLs for media files that can be used to watch directly in web browsers.
-You can use these URLs in https://app.getmetastream.com which is a great project for watching media together.
+A command-line tool for streaming local media files directly in web browsers. It prepares media files and configures Nginx or Plex for HTTP streaming, generating secure direct URLs that work seamlessly with online watch party platforms like [Metastream](https://app.getmetastream.com).
 
-## Why not using Plex directly?
+## Why Not Use Plex Directly?
 
-[Plex](https://plex.tv) has a "watch together" feature (give it a try!), but it works very unstable for Raspberry Pi 4 setup. The Raspberry Pi 4 is not powerful enough to transcode media files on the fly. As a result, everyone in the party must set up their own players each time to choose original quality, which is not always available. Additionally, it is not scalable for many people, as you must invite each person to the party.
+[Plex](https://plex.tv) has a "watch together" feature (give it a try!), but it works very unstably on Raspberry Pi 4 setups. The Raspberry Pi 4 is not powerful enough to transcode media files on the fly. As a result, everyone in the party must set up their own players each time to choose original quality, which is not always available. Additionally, it is not scalable for many people, as you must invite each person to the party.
 
-This tool is designed to work **with original quality** (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configuring Plex Server. See [Prerequisites](#prerequisites) for more details.
+This tool is designed to work **with original quality** (without server transcoding) and provides direct URLs secured with a token, allowing you to watch media files directly in your browser without any additional setup. You can also use it with Nginx without needing to install and configure Plex Server. See [Prerequisites](#prerequisites) for more details.
 
 ## Features
 
-1. Convert media files to MP4 format.
-2. Convert subtitles to VTT format, compatible with most browsers.
-3. Generate Nginx configurations for HTTP media streaming.
-4. Support Plex media server direct urls.
+- **Simple media streaming**: Stream any video file with `browser-streamer stream /path/to/file.mp4`
+- **Multiple server backends**: Choose between Nginx or Plex streaming servers with `--server=nginx|plex`
+- **Media conversion**: Convert media files to MP4 format and subtitles to VTT format (HTML5 compatible)
+- **Instant streaming**: Use `--raw` to stream files immediately without format conversion
+- **Media preparation**: Convert and optimize media files with `--prepare-only` without starting streams
+- **Batch TV show processing**: Automatically detect and process entire TV show directories from any starting episode
+- **Subtitle embedding**: Embed subtitles directly into video streams with `--embed-subs`
+- **Intelligent file scanning**: Automatically scans directories or use `--scan-external` for individual files
+- **Nginx configuration**: Generate Nginx configurations for HTTP media streaming
+- **Plex integration**: Support Plex Media Server direct URLs
+- **Input validation**: Comprehensive error checking with clear, actionable error messages
 
 ## Prerequisites
 
-1. Python 3.10 or higher (use [pyenv](https://github.com/pyenv/pyenv) if needed).
-2. Install the tool
+1. **Python 3.10 or higher** (use [pyenv](https://github.com/pyenv/pyenv) if needed)
+2. **Install the tool**
 
    <details><summary>Install using uvx</summary>
 
@@ -36,30 +41,28 @@ This tool is designed to work **with original quality** (without server transcod
 
    <details><summary>Install using venv+pip</summary>
 
+   ```bash
+   # Create a virtual environment and install dependencies
+   python -m venv venv && source venv/bin/activate
+   pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.2.0
+   # or
+   git clone git@github.com:solesensei/browser_stream.git
+   pip install browser_stream/
+   ```
 
-    ```bash
-    # Create a virtual environment and install dependencies
-    python -m venv venv && source venv/bin/activate
-    pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.2.0
-    # or
-    git clone git@github.com:solesensei/browser_stream.git
-    pip install browser_stream/
-    ```
+   </details>
 
-    </details>
-3. Nginx (if using Nginx) or configured Plex Media Server (if using Plex)
-4. FFmpeg (for media encoding):
-    ```bash
-    sudo apt update && sudo apt install ffmpeg -y
-    ```
-
-
-5. Static IPv4 or IPv6 address for your server.
+3. **Nginx** (if using Nginx) or configured **Plex Media Server** (if using Plex)
+4. **FFmpeg** (for media encoding):
+   ```bash
+   sudo apt update && sudo apt install ffmpeg -y
+   ```
+5. **Static IPv4 or IPv6 address** for your server
 
 ## Usage
 
 > [!NOTE]
-> Tool can work with Nginx or Plex. You can setup one of them or both on different ports.
+> This tool can work with Nginx or Plex. You can set up one of them or both on different ports.
 
 ### Quick Examples
 
@@ -112,9 +115,9 @@ browser-streamer stream /path/to/media/file.mp4 --audio-lang jp --subtitle-lang 
 ### Plex
 
 > [!IMPORTANT]
-> Plex direct url would expose plex token. Use it only in a secure environments. To change the token, you need to change the plex account password with 'logout from all devices' checkmark.
+> Plex direct URLs expose your Plex token. Use only in secure environments. To change the token, you need to change your Plex account password with the 'logout from all devices' option checked.
 
-Setup [Plex Media Server](https://plex.tv)
+Set up [Plex Media Server](https://plex.tv)
 
 ```bash
 # Configure Plex
@@ -128,14 +131,14 @@ browser-streamer stream /path/to/media/file.mp4 --audio-lang jp --subtitle-lang 
 ## Nginx HTTPS with Router Domain or Dynamic DNS
 
 If your router provides a domain name for local network devices, you can use it to stream media over HTTPS.
-Alternatively, you can use a dynamic DNS (like noip.com) service to get a public domain name for your server and configre port forwarding in your router settings.
+Alternatively, you can use a dynamic DNS service (like noip.com) to get a public domain name for your server and configure port forwarding in your router settings.
 
 1. Set up device sharing in your router settings with a public domain name.
 2. Install [Certbot](https://certbot.eff.org/) and obtain a certificate for your domain:
     ```bash
     sudo apt update && sudo apt install certbot python3-certbot-nginx -y
     sudo systemctl stop nginx
-    sudo certbot certonly --standalone -d your-domain.com  # 80 port should be opened by default and port forwarding configured
+    sudo certbot certonly --standalone -d your-domain.com  # Port 80 should be open by default and port forwarding configured
     ```
 3. Configure Nginx to use the certificate:
     ```bash
@@ -152,18 +155,7 @@ Alternatively, you can use a dynamic DNS (like noip.com) service to get a public
     sudo certbot renew
     ```
 
-## CLI Features
-
-- **Simple media streaming**: Stream any video file with `browser-streamer stream /path/to/file.mp4`
-- **Multiple server backends**: Choose between nginx or Plex streaming servers with `--server=nginx|plex`
-- **Instant streaming**: Use `--raw` to stream files immediately without format conversion
-- **Media preparation**: Convert and optimize media files with `--prepare-only` without starting streams
-- **Batch TV show processing**: Automatically detect and process entire TV show directories from any starting episode
-- **Subtitle embedding**: Embed subtitles directly into video streams with `--embed-subs`
-- **Intelligent file scanning**: Automatically scans directories or use `--scan-external` for individual files
-- **Input validation**: Comprehensive error checking with clear, actionable error messages
-
-### Command Reference
+## Command Reference
 
 ```bash
 # View all options
@@ -180,3 +172,11 @@ browser-streamer media info /path/to/file.mp4
 browser-streamer config              # View current config
 browser-streamer config --reset      # Reset configuration
 ```
+
+## References
+
+- **[FFmpeg](https://ffmpeg.org/)** - Media processing and conversion
+- **[Nginx](https://nginx.org/)** - HTTP server for media streaming
+- **[Plex Media Server](https://plex.tv/)** - Media server platform
+- **[Metastream](https://getmetastream.com/)** - Synchronized watch parties (highly recommended)
+- **[Certbot](https://certbot.eff.org/)** - Let's Encrypt certificate automation
