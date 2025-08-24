@@ -78,10 +78,32 @@ def is_tv_show_directory(directory: Path) -> bool:
         return False
 
     # Get file stems (names without extensions)
-    stems = [f.stem for f in video_files]
-    echo.debug(f"File stems: {stems}")
+    # Filter out obvious non-episode files and processed variants
+    stems = []
+    for f in video_files:
+        stem = f.stem
+        # Skip obvious non-episode files
+        if stem.lower() in ['video', 'movie', 'film']:
+            continue
+        # Skip already processed variants (stream files)
+        if '.stream' in stem:
+            continue
+        stems.append(stem)
+    
+    # Need at least 2 potential episode files after filtering
+    if len(stems) < 2:
+        return False
 
-    # Find longest common prefix
+    echo.debug(f"Filtered file stems: {stems[:5]}...")  # Show first 5 for debugging
+
+    # Normalize spacing around common separators before finding prefix
+    normalized_stems = []
+    for stem in stems:
+        # Normalize spacing around underscores and other common separators
+        normalized = re.sub(r'\s*_\s*', '_', stem)  # "Samurai Champloo _01" -> "Samurai Champloo_01"
+        normalized_stems.append(normalized)
+
+    # Find longest common prefix from normalized stems
     def find_common_prefix(strings):
         if not strings:
             return ""
@@ -91,29 +113,46 @@ def is_tv_show_directory(directory: Path) -> bool:
                 return strings[0][:i]
         return strings[0][:min_len]
 
-    prefix = find_common_prefix(stems)
+    prefix = find_common_prefix(normalized_stems)
     echo.debug(f"Common prefix: '{prefix}'")
 
-    # Extract episode numbers from remaining parts after prefix
-    episode_numbers = []
-    for stem in stems:
-        if len(stem) > len(prefix):
-            remaining_part = stem[len(prefix) :]
-            # Find first number in the remaining part
-            numbers = re.findall(r"\d+", remaining_part)
-            if numbers:
-                try:
-                    episode_numbers.append(int(numbers[0]))
-                except ValueError:
-                    continue
+    # If no common prefix, try to find a pattern by looking for show name before episode numbers
+    if not prefix.strip():
+        # Look for patterns like "Show Name" followed by numbers
+        show_patterns = []
+        for stem in normalized_stems:
+            # Find the position of the first digit
+            match = re.search(r'\d', stem)
+            if match:
+                potential_prefix = stem[:match.start()].rstrip('_- ')
+                show_patterns.append(potential_prefix)
+        
+        if show_patterns:
+            prefix = find_common_prefix(show_patterns)
+            echo.debug(f"Pattern-based prefix: '{prefix}'")
 
-    echo.debug(f"Episode numbers found: {episode_numbers}")
+    # Extract episode numbers from remaining parts after prefix
+    episode_numbers = set()  # Use set to avoid duplicates
+    for stem in normalized_stems:
+        remaining_part = stem
+        if prefix and len(stem) > len(prefix):
+            remaining_part = stem[len(prefix):].lstrip('_- ')
+        
+        # Find first number in the remaining part
+        numbers = re.findall(r"\d+", remaining_part)
+        if numbers:
+            try:
+                episode_numbers.add(int(numbers[0]))
+            except ValueError:
+                continue
+
+    echo.debug(f"Unique episode numbers found: {sorted(episode_numbers)}")
 
     # Check if we found episode numbers for most files and they vary
-    if len(episode_numbers) >= len(video_files) * 0.7:  # 70%+ files have numbers
-        # Check that numbers are different (indicates episodes, not just quality markers)
-        unique_numbers = set(episode_numbers)
-        if len(unique_numbers) >= len(episode_numbers) * 0.7:  # 70%+ are unique
+    # Use unique episodes vs filtered stems (not all video files)
+    if len(episode_numbers) >= len(stems) * 0.5:  # 50%+ files have numbers (more lenient)
+        # Check that we have reasonable number of unique episodes
+        if len(episode_numbers) >= 2:  # At least 2 different episodes
             return True
 
     return False
