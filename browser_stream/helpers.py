@@ -342,12 +342,10 @@ class FfmpegMediaInfo:
             line = line.strip()
             if "Estimating duration from bitrate" in line:
                 continue
-            if "from" in line:
+            if ", from '" in line:
                 match = re.search(r"from '(.+)'", line)
                 if match:
                     filename = Path(match.group(1))
-                else:
-                    echo.warning(f"{filename} | Cannot parse filename from line: {line}")
             if "Duration" in line:
                 match = re.search(r"Duration: (.+?),", line)
                 if match:
@@ -625,6 +623,68 @@ class Ffmpeg:
             )
         args.extend(["-y", output_file])
         self._run(*args, live_output=True)
+        return output_file
+
+    @classmethod
+    def repack_to_mp4(
+        cls,
+        input_file: Path,
+        output_file: Path,
+        audio_langs: list[str] | None = None,
+        subtitle_langs: list[str] | None = None,
+        audio_indices: list[int] | None = None,
+        subtitle_indices: list[int] | None = None,
+    ) -> Path:
+        """Repack media file to MP4.
+
+        Two modes:
+        - **Language mode** (``audio_langs``/``subtitle_langs``): maps every
+          stream of the given languages.  Used by the ``--yes`` path.
+        - **Index mode** (``audio_indices``/``subtitle_indices``): maps
+          specific streams by ffmpeg index.  Used after interactive selection.
+        """
+        echo.info(f"Repacking: {input_file.name} -> {output_file.name}")
+
+        args: list[str | Path] = ["-i", input_file, "-map", "0:v:0"]
+        has_subs = False
+
+        if audio_indices is not None or subtitle_indices is not None:
+            # --- index-based mapping ---
+            for idx in audio_indices or []:
+                args.extend(["-map", f"0:{idx}"])
+            for idx in subtitle_indices or []:
+                args.extend(["-map", f"0:{idx}"])
+                has_subs = True
+        else:
+            # --- language-based mapping (--yes path) ---
+            media_info = cls.get_media_info(input_file)
+            available_audio_langs = {s.language for s in media_info.audios if s.language}
+            available_sub_langs = {s.language for s in media_info.subtitles if s.language}
+
+            for lang in audio_langs or []:
+                if lang in available_audio_langs:
+                    args.extend(["-map", f"0:a:m:language:{lang}"])
+                else:
+                    echo.warning(f"Audio language '{lang}' not found, skipping")
+
+            for lang in subtitle_langs or []:
+                if lang in available_sub_langs:
+                    args.extend(["-map", f"0:s:m:language:{lang}"])
+                    has_subs = True
+                else:
+                    echo.warning(f"Subtitle language '{lang}' not found, skipping")
+
+        args.extend([
+            "-c:v", "copy",
+            "-c:a", "copy",
+        ])
+        if has_subs:
+            args.extend(["-c:s", "mov_text"])
+        args.extend([
+            "-movflags", "+faststart",
+            "-y", output_file,
+        ])
+        cls._run(*args, live_output=True)
         return output_file
 
     def convert_subtitle_to_vtt(

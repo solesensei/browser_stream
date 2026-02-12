@@ -195,6 +195,127 @@ def media_info_command(
     echo.print_json(ffmeg.get_media_info(media_file).to_dict())
 
 
+@media_app.command("repack")
+def media_repack_command(
+    media: Path = typer.Argument(
+        help="Path to media file or directory",
+        exists=True,
+        file_okay=True,
+        dir_okay=True,
+    ),
+    audio_lang: str = typer.Option(
+        "eng",
+        help="Audio languages to keep (comma-separated, e.g. eng,rus)",
+    ),
+    subtitle_lang: str = typer.Option(
+        "rus,eng",
+        help="Subtitle languages to keep (comma-separated, e.g. rus,eng)",
+    ),
+    output_dir: tp.Optional[Path] = typer.Option(
+        None,
+        help="Output directory (defaults to same as input)",
+        dir_okay=True,
+        file_okay=False,
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        help="Show media info and planned mapping without converting",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        "-y",
+        help="Skip interactive confirmation and use provided language options",
+    ),
+):
+    """Repack media files to MP4 keeping selected audio/subtitle languages.
+
+    \b
+    Examples:
+        Repack single file (default: eng audio, rus+eng subs):
+        $ browser-streamer media repack movie.mkv
+
+        Repack a whole directory:
+        $ browser-streamer media repack /path/to/series/
+
+        Dry run to preview what would happen:
+        $ browser-streamer media repack /path/to/series/ --dry-run
+
+        Custom languages:
+        $ browser-streamer media repack movie.mkv --audio-lang rus --subtitle-lang rus,eng
+
+        Keep original filename:
+        $ browser-streamer media repack movie.mkv --no-clean-filename
+    """
+    from rich.console import Console
+    from rich.table import Table
+
+    from browser_stream import confirm_repack, repack_media_files
+
+    media = utils.resolve_path_pwd(media)
+    audio_langs = [l.strip() for l in audio_lang.split(",")]
+    subtitle_langs = [l.strip() for l in subtitle_lang.split(",")]
+
+    if output_dir:
+        output_dir = utils.resolve_path_pwd(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+    results = []
+
+    if not yes:
+        groups = confirm_repack(media, audio_langs, subtitle_langs)
+        for group in groups:
+            for f in group.files:
+                results.extend(repack_media_files(
+                    media=f,
+                    selected_streams=group.selected_streams,
+                    output_dir=output_dir,
+                    dry_run=dry_run,
+                ))
+    else:
+        results = repack_media_files(
+            media=media,
+            audio_langs=audio_langs,
+            subtitle_langs=subtitle_langs,
+            output_dir=output_dir,
+            dry_run=dry_run,
+        )
+
+    if not results:
+        return
+
+    # Report table
+    console = Console()
+    table = Table(title="Repack Results")
+    table.add_column("Filename")
+    table.add_column("Size", justify="right")
+    table.add_column("Status")
+    table.add_column("Note")
+
+    for r in results:
+        if r.error is not None:
+            status = "[red]Failed[/red]"
+            size_str = utils.format_size(r.input_size) if r.input_size else "-"
+            note = r.error[:80]
+        elif r.skipped:
+            status = "[yellow]Skipped[/yellow]"
+            size_str = utils.format_size(r.input_size) if r.input_size else "-"
+            note = r.note
+        else:
+            status = "[green]Completed[/green]"
+            size_str = f"{utils.format_size(r.input_size)} -> {utils.format_size(r.output_size)}"
+            note = r.note
+        table.add_row(r.output_file.name, size_str, status, note)
+
+    echo.print("")
+    console.print(table)
+
+    processed = sum(1 for r in results if not r.skipped and r.error is None)
+    skipped = sum(1 for r in results if r.skipped)
+    errors = sum(1 for r in results if r.error is not None)
+    echo.print(utils.bb("Summary: ") + f"{processed} processed, {skipped} skipped, {errors} errors")
+
+
 @setup_app.command("plex")
 def plex_command(
     x_token: tp.Annotated[str, typer.Option(help="X-Plex-Token")],

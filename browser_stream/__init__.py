@@ -14,6 +14,7 @@ from browser_stream.helpers import (
     HTML,
     Exit,
     Ffmpeg,
+    FfmpegMediaInfo,
     FfmpegStream,
     Nginx,
     PlexAPI,
@@ -701,6 +702,352 @@ def batch_prepare_episodes(
 
     echo.info("🎉 Batch processing completed!")
     _batch_settings_cache = None  # Clear cache after completion
+
+
+@dataclasses.dataclass
+class SelectedStream:
+    """A stream chosen by the user, identified by type + language + position.
+
+    ``position`` is the 0-based index within streams of the same
+    *type + language* group (so it stays stable even if the absolute
+    ffmpeg stream index changes between files).
+    """
+    stream_type: tp.Literal["audio", "subtitle"]
+    language: str | None
+    position: int
+
+
+@dataclasses.dataclass
+class RepackGroup:
+    """A set of files that can be processed with the same stream selection."""
+    files: list[Path]
+    selected_streams: list[SelectedStream]
+
+
+def _resolve_stream_indices(
+    info: FfmpegMediaInfo,
+    selected: list[SelectedStream],
+) -> tuple[list[int], list[int]]:
+    """Map ``SelectedStream`` identities to actual ffmpeg stream indices."""
+    audio_indices: list[int] = []
+    sub_indices: list[int] = []
+
+    for sel in selected:
+        candidates = info.audios if sel.stream_type == "audio" else info.subtitles
+        matching = [s for s in candidates if s.language == sel.language]
+        if sel.position < len(matching):
+            idx = matching[sel.position].index
+            (audio_indices if sel.stream_type == "audio" else sub_indices).append(idx)
+        else:
+            echo.warning(
+                f"Stream not found: {sel.stream_type} {sel.language} "
+                f"position {sel.position} in {info.filename.name}"
+            )
+
+    return audio_indices, sub_indices
+
+
+def _selection_signature(
+    info: FfmpegMediaInfo,
+    selected_streams: list[SelectedStream],
+) -> tuple:
+    """Hashable key: stream count per (type, language) that the selection needs.
+
+    Two files match when, for every (type, language) pair in the selection,
+    they have at least as many streams as the highest position selected.
+    """
+    type_lang_needed: dict[tuple[str, str | None], int] = {}
+    for sel in selected_streams:
+        key = (sel.stream_type, sel.language)
+        type_lang_needed[key] = max(type_lang_needed.get(key, 0), sel.position + 1)
+
+    return tuple(sorted(
+        (key, sum(
+            1 for s in (info.audios if key[0] == "audio" else info.subtitles)
+            if s.language == key[1]
+        ))
+        for key in type_lang_needed
+    ))
+
+
+def _select_streams_interactive(
+    media_info: FfmpegMediaInfo,
+    audio_langs: list[str],
+    subtitle_langs: list[str],
+) -> list[SelectedStream]:
+    """Show a Rich table and let the user pick *specific* audio/subtitle streams."""
+    from rich.console import Console
+    from rich.table import Table
+
+    console = Console()
+    table = Table(title=f"Streams: {media_info.filename.name}")
+    table.add_column("#", style="bold")
+    table.add_column("Type")
+    table.add_column("Language")
+    table.add_column("Codec")
+    table.add_column("Title")
+    table.add_column("Info")
+
+    for s in media_info.audios:
+        table.add_row(str(s.index), "audio", s.language or "-", s.codec, s.title, s.encoding_info or "")
+    for s in media_info.subtitles:
+        table.add_row(str(s.index), "subtitle", s.language or "-", s.codec, s.title, s.encoding_info or "")
+
+    console.print(table)
+
+    selected: list[SelectedStream] = []
+
+    # --- Audio stream selection ---
+    if media_info.audios:
+        audio_options = [
+            f"{s.language or '-'} - {s.title} ({s.codec})"
+            for s in media_info.audios
+        ]
+        audio_defaults = [
+            i for i, s in enumerate(media_info.audios)
+            if s.language and s.language in audio_langs
+        ]
+
+        chosen = utils.select_multi_options(
+            options=audio_options,
+            option_name="audio streams",
+            message="Audio streams:",
+            defaults=audio_defaults,
+        )
+        for idx in chosen:
+            stream = media_info.audios[idx]
+            position = sum(
+                1 for s in media_info.audios[:idx]
+                if s.language == stream.language
+            )
+            selected.append(SelectedStream("audio", stream.language, position))
+
+    # --- Subtitle stream selection ---
+    if media_info.subtitles:
+        sub_options = [
+            f"{s.language or '-'} - {s.title} ({s.codec})"
+            for s in media_info.subtitles
+        ]
+        sub_defaults = [
+            i for i, s in enumerate(media_info.subtitles)
+            if s.language and s.language in subtitle_langs
+        ]
+
+        chosen = utils.select_multi_options(
+            options=sub_options,
+            option_name="subtitle streams",
+            message="Subtitle streams:",
+            defaults=sub_defaults,
+            allow_none=True,
+        )
+        for idx in chosen:
+            stream = media_info.subtitles[idx]
+            position = sum(
+                1 for s in media_info.subtitles[:idx]
+                if s.language == stream.language
+            )
+            selected.append(SelectedStream("subtitle", stream.language, position))
+
+    return selected
+
+
+def confirm_repack(
+    media: Path,
+    audio_langs: list[str],
+    subtitle_langs: list[str],
+) -> list[RepackGroup]:
+    """Probe files, ask for the first one, then only re-ask when streams differ.
+
+    After the user picks specific streams for the first file, every other
+    file is checked: if it has at least as many streams per (type, language)
+    as the selection requires, it joins the same group silently.
+    """
+    ffmpeg = Ffmpeg()
+    fs = FS()
+
+    # Collect files
+    if media.is_file():
+        all_files = [media]
+    else:
+        all_files = sorted(
+            f for f in fs.get_video_files(media, recursive_depth=0)
+            if f.suffix.lower() != ".mp4"
+        )
+        if not all_files:
+            echo.warning("No non-MP4 video files found")
+            return []
+
+    # Probe all files
+    echo.info(f"Probing {len(all_files)} file(s)...")
+    all_probed: list[tuple[Path, FfmpegMediaInfo]] = []
+    for f in all_files:
+        all_probed.append((f, ffmpeg.get_media_info(f)))
+
+    # --- Ask for the first file ---
+    first_file, first_info = all_probed[0]
+    selected_streams = _select_streams_interactive(
+        first_info, audio_langs, subtitle_langs,
+    )
+
+    # --- Group remaining files by selection-aware signature ---
+    first_sig = _selection_signature(first_info, selected_streams)
+
+    sig_groups: dict[tuple, list[tuple[Path, FfmpegMediaInfo]]] = {}
+    for f, info in all_probed:
+        sig = _selection_signature(info, selected_streams)
+        sig_groups.setdefault(sig, []).append((f, info))
+
+    result: list[RepackGroup] = []
+
+    # Main group — files whose selected streams match the first file
+    main_group = sig_groups.pop(first_sig, [])
+    if main_group:
+        if len(all_probed) > 1:
+            echo.info(f"{len(main_group)}/{len(all_probed)} file(s) match the selected streams")
+        result.append(RepackGroup(
+            files=[f for f, _ in main_group],
+            selected_streams=selected_streams,
+        ))
+
+    # Remaining groups — streams differ for the selected languages
+    for sig, group_files in sig_groups.items():
+        echo.print("")
+        echo.info(f"Different streams in {len(group_files)} file(s):")
+        for f, _ in group_files[:5]:
+            echo.print(f"  {f.name}")
+        if len(group_files) > 5:
+            echo.print(f"  ... and {len(group_files) - 5} more")
+
+        repr_file, repr_info = group_files[0]
+        # Use the languages from the first selection as defaults
+        prev_audio_langs = list(dict.fromkeys(
+            s.language for s in selected_streams
+            if s.stream_type == "audio" and s.language
+        ))
+        prev_sub_langs = list(dict.fromkeys(
+            s.language for s in selected_streams
+            if s.stream_type == "subtitle" and s.language
+        ))
+        group_streams = _select_streams_interactive(
+            repr_info, prev_audio_langs, prev_sub_langs,
+        )
+        result.append(RepackGroup(
+            files=[f for f, _ in group_files],
+            selected_streams=group_streams,
+        ))
+
+    return result
+
+
+@dataclasses.dataclass
+class RepackResult:
+    input_file: Path
+    output_file: Path
+    skipped: bool = False
+    error: str | None = None
+    note: str = ""
+    input_size: int = 0
+    output_size: int = 0
+
+
+def repack_media_files(
+    media: Path,
+    audio_langs: list[str] | None = None,
+    subtitle_langs: list[str] | None = None,
+    selected_streams: list[SelectedStream] | None = None,
+    output_dir: Path | None = None,
+    dry_run: bool = False,
+) -> list[RepackResult]:
+    """Repack video files to MP4.
+
+    Two modes:
+    - **Language mode** (``audio_langs``/``subtitle_langs``): maps every stream
+      of the given languages.  Used by the ``--yes`` CLI path.
+    - **Stream mode** (``selected_streams``): maps specific streams chosen
+      interactively.  Indices are resolved per file via
+      :func:`_resolve_stream_indices`.
+    """
+    ffmpeg = Ffmpeg()
+    fs = FS()
+
+    # Collect files to process
+    if media.is_file():
+        files = [media]
+    elif media.is_dir():
+        files = sorted(
+            f for f in fs.get_video_files(media, recursive_depth=0)
+            if f.suffix.lower() != ".mp4"
+        )
+        if not files:
+            echo.warning(f"No non-MP4 video files found in {media}")
+            return []
+    else:
+        raise Exit(f"Path does not exist: {media}")
+
+    results: list[RepackResult] = []
+
+    for input_file in files:
+        stem = input_file.stem
+        input_size = input_file.stat().st_size
+
+        dest_dir = output_dir or input_file.parent
+        output_file = dest_dir / f"{stem}.mp4"
+
+        # Skip if output already exists
+        if output_file.exists():
+            echo.info(f"Skipping (exists): {output_file.name}")
+            results.append(RepackResult(
+                input_file, output_file, skipped=True,
+                note="already exists", input_size=input_size,
+            ))
+            continue
+
+        # Resolve indices when using stream mode
+        audio_idx: list[int] | None = None
+        sub_idx: list[int] | None = None
+        if selected_streams is not None:
+            info = ffmpeg.get_media_info(input_file)
+            audio_idx, sub_idx = _resolve_stream_indices(info, selected_streams)
+
+        if dry_run:
+            ffmpeg.print_media_info(input_file)
+            echo.print("")
+            echo.print(utils.bb("Planned output: ") + output_file.name)
+            if audio_idx is not None:
+                echo.print(utils.bb("Audio streams: ") + ", ".join(f"#{i}" for i in audio_idx))
+                echo.print(utils.bb("Subtitle streams: ") + (", ".join(f"#{i}" for i in (sub_idx or [])) or "none"))
+            else:
+                echo.print(utils.bb("Audio langs: ") + ", ".join(audio_langs or []))
+                echo.print(utils.bb("Subtitle langs: ") + ", ".join(subtitle_langs or []))
+            echo.print("=" * 60)
+            results.append(RepackResult(
+                input_file, output_file, skipped=True,
+                note="dry run", input_size=input_size,
+            ))
+            continue
+
+        try:
+            ffmpeg.repack_to_mp4(
+                input_file=input_file,
+                output_file=output_file,
+                audio_langs=audio_langs,
+                subtitle_langs=subtitle_langs,
+                audio_indices=audio_idx,
+                subtitle_indices=sub_idx,
+            )
+            output_size = output_file.stat().st_size
+            results.append(RepackResult(
+                input_file, output_file,
+                input_size=input_size, output_size=output_size,
+            ))
+        except Exception as e:
+            echo.error(f"Failed: {input_file.name}: {e}")
+            results.append(RepackResult(
+                input_file, output_file, error=str(e),
+                input_size=input_size,
+            ))
+
+    return results
 
 
 def prepare_file_to_stream(
