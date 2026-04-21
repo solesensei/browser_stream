@@ -14,8 +14,20 @@ from browser_stream import config
 logger = logging.getLogger(__name__)
 
 
-def setup_logger() -> None:
+def setup_logger(log_level: str | None = None) -> None:
+    if log_level:
+        level_map = {
+            "debug": logging.DEBUG,
+            "info": logging.INFO,
+            "warn": logging.WARNING,
+            "error": logging.ERROR,
+        }
+        log_level_int = level_map.get(log_level.lower(), logging.INFO)
+    else:
+        log_level_int = logging.DEBUG if config.DEBUG else logging.INFO
+
     console = Console(
+        file=sys.stderr,
         theme=Theme(
             {
                 "logging.level.info": "bold cyan",
@@ -46,9 +58,9 @@ def setup_logger() -> None:
     logging.addLevelName(logging.DEBUG, "debug")
 
     logger = logging.getLogger("browser_stream")
-    handler.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
+    handler.setLevel(log_level_int)
     logger.addHandler(handler)
-    logger.setLevel(logging.DEBUG if config.DEBUG else logging.INFO)
+    logger.setLevel(log_level_int)
 
 
 class Echo:
@@ -77,18 +89,23 @@ class Echo:
         logger.error(msg)
 
     def print(self, msg: str, **kwargs: tp.Any) -> None:
+        if config.JSON_OUTPUT:
+            return
         self.clear_line()
         typer.echo(msg, **kwargs)
 
     def printc(
         self, msg: str, color: str | None = None, end: str = "\n", **kwargs: tp.Any
     ) -> None:
+        if config.JSON_OUTPUT:
+            return
         self.clear_line()
         msg = typer.style(msg, fg=color, **kwargs)
         print(msg, end=end, file=sys.stderr, flush=True)
 
     def print_json(self, data: tp.Any) -> None:
-        self.print(json.dumps(data, indent=2, ensure_ascii=False))
+        json_str = json.dumps(data, indent=2, ensure_ascii=False)
+        print(json_str, file=sys.stdout, flush=True)
 
 
 echo = Echo()

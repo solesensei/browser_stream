@@ -377,7 +377,7 @@ class FfmpegMediaInfo:
                     last_stream_info.title = last_stream_info.title or default_title
                     streams.append(last_stream_info)
                 match = re.search(
-                    r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(.*)",
+                    r"Stream #\d+:(\d+)(?:\[0x[0-9a-f]+\])?(?:\((\w+)\))?\s*:\s*(\w+)\s*:\s*(\w+)(.*)",
                     line,
                 )
                 if match:
@@ -387,11 +387,11 @@ class FfmpegMediaInfo:
                         type=type_.lower(),  # type: ignore
                         codec=codec.lower().strip(),
                         language=lang or default_lang,
-                        encoding_info=encoding_info.split(",", 1)[-1].strip(),
+                        encoding_info=encoding_info.split(",", 1)[-1].strip() if encoding_info else "",
                     )
                 else:
-                    echo.warning(
-                        f"{filename} | Cannot parse stream info from line: {line}"
+                    echo.debug(
+                        f"{filename} | Could not parse stream info from line: {line}"
                     )
             if line.startswith("title") and last_stream_info:
                 match = re.search(r"title\s+:\s+(.+)", line)
@@ -606,8 +606,11 @@ class Ffmpeg:
             )
         if audio_file:
             args.extend(["-map", f"{index_audio}:a:0", "-c:a", "copy"])
-        elif audio_stream:
+        elif audio_stream is not None:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
+        else:
+            # Copy all audio streams from input when no specific audio is selected
+            args.extend(["-map", "0:a", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang.lower()[:3]}"])
         if subtitle_file and not burn_subtitles:
@@ -634,6 +637,7 @@ class Ffmpeg:
         subtitle_langs: list[str] | None = None,
         audio_indices: list[int] | None = None,
         subtitle_indices: list[int] | None = None,
+        extra_args: list[str] | None = None,
     ) -> Path:
         """Repack media file to MP4.
 
@@ -674,24 +678,18 @@ class Ffmpeg:
                 else:
                     echo.warning(f"Subtitle language '{lang}' not found, skipping")
 
-        args.extend(
-            [
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy",
-            ]
-        )
+        args.extend([
+            "-c:v", "copy",
+            "-c:a", "copy",
+        ])
         if has_subs:
             args.extend(["-c:s", "mov_text"])
-        args.extend(
-            [
-                "-movflags",
-                "+faststart",
-                "-y",
-                output_file,
-            ]
-        )
+        if extra_args:
+            args.extend(extra_args)
+        args.extend([
+            "-movflags", "+faststart",
+            "-y", output_file,
+        ])
         cls._run(*args, live_output=True)
         return output_file
 

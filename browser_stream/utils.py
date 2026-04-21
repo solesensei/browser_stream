@@ -26,15 +26,29 @@ if tp.TYPE_CHECKING:
 T = tp.TypeVar("T")
 
 
+class PromptNeeded(Exception):
+    """Raised when a prompt is needed but --non-interactive is set"""
+
+    def __init__(self, message: str, hint: str = "", code: int = 2) -> None:
+        self.message = message
+        self.hint = hint
+        self.code = code
+        super().__init__(message)
+
+
 def bb(text: str) -> str:
     return typer.style(text, bold=True)
 
 
-def prompt(message: str, **kwargs) -> str:
+def prompt(message: str, hint: str = "", **kwargs) -> str:
+    if config.NON_INTERACTIVE:
+        raise PromptNeeded(message, hint=hint, code=2)
     return typer.prompt(bb(message), **kwargs)
 
 
-def confirm(message: str, default: bool = True, abort: bool = False) -> bool:
+def confirm(message: str, default: bool = True, abort: bool = False, hint: str = "") -> bool:
+    if config.NON_INTERACTIVE:
+        raise PromptNeeded(message, hint=hint, code=2)
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
 
 
@@ -88,9 +102,11 @@ def resolve_path_pwd(path: Path) -> Path:
     return Path(os.path.normpath(resolved_path))
 
 
-def prompt_path(message: str, exists: bool = True) -> Path:
+def prompt_path(message: str, exists: bool = True, hint: str = "") -> Path:
+    if config.NON_INTERACTIVE:
+        raise PromptNeeded(message, hint=hint, code=2)
     while True:
-        path: Path = prompt(message, type=Path)  # type: ignore
+        path: Path = typer.prompt(bb(message), type=Path)  # type: ignore
         if exists and not path.exists():
             echo.error(f"Path `{path}` does not exist")
             continue
@@ -101,7 +117,10 @@ def select_options_interactive(
     options: tp.Sequence[T],
     option_name: str,
     message: str = "Options:",
+    hint: str = "",
 ) -> tuple[int, T]:
+    if config.NON_INTERACTIVE:
+        raise PromptNeeded(f"Select {option_name}", hint=hint, code=2)
     echo.print(bb(message))
     for i, _option in enumerate(options, start=1):
         echo.print(f"[{i}] {_option}")
@@ -122,6 +141,7 @@ def select_multi_options(
     message: str = "Options:",
     defaults: tp.Sequence[int] | None = None,
     allow_none: bool = False,
+    hint: str = "",
 ) -> list[int]:
     """Interactive multi-select from numbered options.
 
@@ -131,10 +151,13 @@ def select_multi_options(
         message: Header printed above the list.
         defaults: 0-based indices of pre-selected options (shown with ``*``).
         allow_none: When True, show a ``[0] None`` entry. Typing ``0`` returns ``[]``.
+        hint: Hint for non-interactive mode.
 
     Returns:
         List of selected 0-based indices (empty list when the user picks "None").
     """
+    if config.NON_INTERACTIVE:
+        raise PromptNeeded(f"Select {option_name}", hint=hint, code=2)
     echo.print(bb(message))
     default_set = set(defaults or [])
     if allow_none:
@@ -234,8 +257,11 @@ def run_process(
     timeout: int | None = None,
 ) -> subprocess.CompletedProcess:
     command_str = " ".join(command)
-    if config.PROMPT_COMMANDS and not confirm(f"Run command: {command_str}"):
-        raise ValueError("Aborted")
+    if config.PROMPT_COMMANDS:
+        if config.NON_INTERACTIVE:
+            raise PromptNeeded(f"Run command: {command_str}", hint="Remove PROMPT_COMMANDS env var", code=2)
+        if not confirm(f"Run command: {command_str}"):
+            raise ValueError("Aborted")
     if config.PRINT_CMD:
         echo.print(typer.style("Running command: ", bold=True) + command_str)
     else:
