@@ -387,7 +387,9 @@ class FfmpegMediaInfo:
                         type=type_.lower(),  # type: ignore
                         codec=codec.lower().strip(),
                         language=lang or default_lang,
-                        encoding_info=encoding_info.split(",", 1)[-1].strip() if encoding_info else "",
+                        encoding_info=encoding_info.split(",", 1)[-1].strip()
+                        if encoding_info
+                        else "",
                     )
                 else:
                     echo.debug(
@@ -678,18 +680,26 @@ class Ffmpeg:
                 else:
                     echo.warning(f"Subtitle language '{lang}' not found, skipping")
 
-        args.extend([
-            "-c:v", "copy",
-            "-c:a", "copy",
-        ])
+        args.extend(
+            [
+                "-c:v",
+                "copy",
+                "-c:a",
+                "copy",
+            ]
+        )
         if has_subs:
             args.extend(["-c:s", "mov_text"])
         if extra_args:
             args.extend(extra_args)
-        args.extend([
-            "-movflags", "+faststart",
-            "-y", output_file,
-        ])
+        args.extend(
+            [
+                "-movflags",
+                "+faststart",
+                "-y",
+                output_file,
+            ]
+        )
         cls._run(*args, live_output=True)
         return output_file
 

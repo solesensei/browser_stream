@@ -130,7 +130,15 @@ class TestMediaExtractAudio:
 
             result = runner.invoke(
                 app,
-                ["--json", "--yes", "media", "extract-audio", str(temp_video_file), "--lang", "jpn"],
+                [
+                    "--json",
+                    "--yes",
+                    "media",
+                    "extract-audio",
+                    str(temp_video_file),
+                    "--lang",
+                    "jpn",
+                ],
             )
 
             assert result.exit_code == 0
@@ -165,7 +173,8 @@ class TestMediaRepack:
                     "media",
                     "repack",
                     str(temp_video_file),
-                    "--audio-lang", "eng",
+                    "--audio-lang",
+                    "eng",
                 ],
             )
 
@@ -191,7 +200,8 @@ class TestMediaRepack:
                 "media",
                 "repack",
                 str(temp_video_file),
-                "--audio-lang", "eng",
+                "--audio-lang",
+                "eng",
             ],
         )
 
@@ -222,7 +232,8 @@ class TestMediaRepack:
                     "media",
                     "repack",
                     str(temp_video_file),
-                    "--audio-lang", "eng",
+                    "--audio-lang",
+                    "eng",
                 ],
             )
 
@@ -238,9 +249,10 @@ class TestMediaRepack:
 class TestMediaConvertSubs:
     def test_convert_subs_to_vtt(self, runner, temp_subtitle_file):
         """Test `media convert-subs` to VTT format."""
-        with patch("browser_stream.cli.Ffmpeg") as mock_ffmpeg_class, patch(
-            "browser_stream.cli.FS"
-        ) as mock_fs_class:
+        with (
+            patch("browser_stream.cli.Ffmpeg") as mock_ffmpeg_class,
+            patch("browser_stream.cli.FS") as mock_fs_class,
+        ):
             mock_ffmpeg = MagicMock()
             mock_ffmpeg_class.return_value = mock_ffmpeg
             mock_fs = MagicMock()
@@ -250,7 +262,9 @@ class TestMediaConvertSubs:
             vtt_file = temp_subtitle_file.with_suffix(".vtt")
 
             def create_vtt(*args, **kwargs):
-                vtt_file.write_text("WEBVTT\n\n00:00:00.000 --> 00:00:05.000\nTest subtitle")
+                vtt_file.write_text(
+                    "WEBVTT\n\n00:00:00.000 --> 00:00:05.000\nTest subtitle"
+                )
                 return vtt_file
 
             mock_ffmpeg.convert_subtitle_to_vtt.side_effect = create_vtt
@@ -269,7 +283,9 @@ class TestMediaConvertSubs:
 
 
 class TestLogLevel:
-    def test_log_level_error_suppresses_output(self, runner, temp_video_file, mock_media_info):
+    def test_log_level_error_suppresses_output(
+        self, runner, temp_video_file, mock_media_info
+    ):
         """Test that --log-level error suppresses log output."""
         with patch("browser_stream.cli.Ffmpeg") as mock_ffmpeg_class:
             mock_instance = MagicMock()
@@ -280,7 +296,8 @@ class TestLogLevel:
                 app,
                 [
                     "--json",
-                    "--log-level", "error",
+                    "--log-level",
+                    "error",
                     "media",
                     "info",
                     str(temp_video_file),
@@ -309,7 +326,15 @@ class TestExitCodes:
 
             result = runner.invoke(
                 app,
-                ["--json", "--yes", "media", "extract-audio", str(temp_video_file), "--lang", "jpn"],
+                [
+                    "--json",
+                    "--yes",
+                    "media",
+                    "extract-audio",
+                    str(temp_video_file),
+                    "--lang",
+                    "jpn",
+                ],
             )
 
             # Should exit with error code

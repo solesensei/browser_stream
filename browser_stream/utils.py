@@ -46,7 +46,9 @@ def prompt(message: str, hint: str = "", **kwargs) -> str:
     return typer.prompt(bb(message), **kwargs)
 
 
-def confirm(message: str, default: bool = True, abort: bool = False, hint: str = "") -> bool:
+def confirm(
+    message: str, default: bool = True, abort: bool = False, hint: str = ""
+) -> bool:
     if config.NON_INTERACTIVE:
         raise PromptNeeded(message, hint=hint, code=2)
     return typer.confirm(bb(f"🤔 {message}"), default=default, abort=abort)
@@ -259,7 +261,11 @@ def run_process(
     command_str = " ".join(command)
     if config.PROMPT_COMMANDS:
         if config.NON_INTERACTIVE:
-            raise PromptNeeded(f"Run command: {command_str}", hint="Remove PROMPT_COMMANDS env var", code=2)
+            raise PromptNeeded(
+                f"Run command: {command_str}",
+                hint="Remove PROMPT_COMMANDS env var",
+                code=2,
+            )
         if not confirm(f"Run command: {command_str}"):
             raise ValueError("Aborted")
     if config.PRINT_CMD:

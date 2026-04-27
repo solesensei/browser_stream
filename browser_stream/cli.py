@@ -62,6 +62,7 @@ app.add_typer(media_app)
 
 class MediaStreamType(str, Enum):
     """Media stream types for filtering."""
+
     audio = "audio"
     subtitle = "subtitle"
     video = "video"
@@ -70,7 +71,9 @@ class MediaStreamType(str, Enum):
 @app.callback()
 def app_callback(
     yes: bool = typer.Option(False, "--yes", help="Non-interactive mode (no prompts)"),
-    json: bool = typer.Option(False, "--json", help="JSON output mode (implies --non-interactive)"),
+    json: bool = typer.Option(
+        False, "--json", help="JSON output mode (implies --non-interactive)"
+    ),
     log_level: str | None = typer.Option(
         None,
         "--log-level",
@@ -246,7 +249,9 @@ def media_info_command(
     if config.JSON_OUTPUT:
         result = info.to_dict()
         if only:
-            filtered_streams = [s for s in result.get("streams", []) if s.get("type") == only.value]
+            filtered_streams = [
+                s for s in result.get("streams", []) if s.get("type") == only.value
+            ]
             result = {only.value: filtered_streams}
         echo.print_json(result)
     else:
@@ -265,7 +270,7 @@ def media_info_command(
                 )
                 console.print(table)
             except Exit:
-                pass 
+                pass
 
         # Audio streams
         if not only or only == MediaStreamType.audio:
@@ -371,7 +376,9 @@ def media_extract_audio_command(
 def media_extract_subs_command(
     media_file: Path = typer.Argument(..., help="Path to media file", exists=True),
     stream: int = typer.Option(None, "--stream", help="Subtitle stream index (0-based)"),
-    lang: str = typer.Option(None, "--lang", help="Subtitle language code (e.g., eng, jpn)"),
+    lang: str = typer.Option(
+        None, "--lang", help="Subtitle language code (e.g., eng, jpn)"
+    ),
     format: str = typer.Option("srt", "--format", help="Output format (srt or vtt)"),
     output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
@@ -442,7 +449,9 @@ def media_extract_subs_command(
 @media_app.command("convert-subs")
 def media_convert_subs_command(
     subtitle_file: Path = typer.Argument(..., help="Path to subtitle file", exists=True),
-    lang: str = typer.Option(None, "--lang", help="Subtitle language code (eng, jpn, etc.)"),
+    lang: str = typer.Option(
+        None, "--lang", help="Subtitle language code (eng, jpn, etc.)"
+    ),
     to: str = typer.Option("vtt", "--to", help="Output format (vtt)"),
     output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
@@ -604,9 +613,7 @@ def media_html_command(
 
     try:
         html = HTML()
-        html_content = html.get_video_html_with_subtitles(
-            video_file, subtitles, lang
-        )
+        html_content = html.get_video_html_with_subtitles(video_file, subtitles, lang)
         output.write_text(html_content)
 
         result = MediaResult(
@@ -732,11 +739,16 @@ def media_repack_command(
     if re_encode_video or extra_args:
         extra_args_list = []
         if re_encode_video:
-            extra_args_list.extend([
-                "-c:v", "libx264",
-                "-crf", config.FFPEG_ENCODE_CRF,
-                "-preset", config.FFPEG_ENCODE_PRESET,
-            ])
+            extra_args_list.extend(
+                [
+                    "-c:v",
+                    "libx264",
+                    "-crf",
+                    config.FFPEG_ENCODE_CRF,
+                    "-preset",
+                    config.FFPEG_ENCODE_PRESET,
+                ]
+            )
         if extra_args:
             extra_args_list.extend(shlex.split(extra_args))
 
@@ -828,9 +840,7 @@ def media_repack_command(
             if result.skipped:
                 echo.info(f"Skipped: {result.note}")
             else:
-                echo.info(
-                    f"Completed: {result.input_size} -> {result.output_size}"
-                )
+                echo.info(f"Completed: {result.input_size} -> {result.output_size}")
 
 
 def _repack_single_file(
