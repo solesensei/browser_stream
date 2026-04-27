@@ -767,11 +767,13 @@ def media_repack_command(
 
     # Handle directory input
     if media.is_dir():
-        if output is not None and not output.is_dir():
-            raise Exit(
-                "When repacking a directory, --output must be a directory (or omit it)",
-                code=1,
-            )
+        if output is not None:
+            if output.exists() and not output.is_dir():
+                raise Exit(
+                    "When repacking a directory, --output must be a directory (or omit it)",
+                    code=1,
+                )
+            output.mkdir(parents=True, exist_ok=True)
         fs = FS()
         video_files = [
             f

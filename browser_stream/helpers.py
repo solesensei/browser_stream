@@ -612,7 +612,7 @@ class Ffmpeg:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
         else:
             # Copy all audio streams from input when no specific audio is selected
-            args.extend(["-map", "0:a", "-c:a", "copy"])
+            args.extend(["-map", "0:a?", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang.lower()[:3]}"])
         if subtitle_file and not burn_subtitles:
