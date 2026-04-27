@@ -106,6 +106,13 @@ def resolve_stream(
     """
     streams = info.audios if kind == "audio" else info.subtitles
 
+    if not streams:
+        raise Exit(f"No {kind} streams found", code=1)
+
+    # Auto-select if there's only one stream
+    if len(streams) == 1 and stream is None and lang is None:
+        return streams[0]
+
     # If stream index is specified, match by absolute ffmpeg index
     if stream is not None:
         match = next((s for s in streams if s.index == stream), None)

@@ -70,9 +70,8 @@ class MediaStreamType(str, Enum):
 
 @app.callback()
 def app_callback(
-    yes: bool = typer.Option(False, "--yes", help="Non-interactive mode (no prompts)"),
     json: bool = typer.Option(
-        False, "--json", help="JSON output mode (implies --non-interactive)"
+        False, "--json", help="JSON output mode (implies NON_INTERACTIVE)"
     ),
     log_level: str | None = typer.Option(
         None,
@@ -88,8 +87,6 @@ def app_callback(
     """Global options for all commands."""
     if json:
         config.JSON_OUTPUT = True
-        config.NON_INTERACTIVE = True
-    elif yes:
         config.NON_INTERACTIVE = True
 
     if log_level is not None:
@@ -919,8 +916,7 @@ def _repack_single_file(
             command="media repack",
             input=str(media),
             output=str(output),
-            skipped=True,
-            note="File already exists",
+            error=f"Output file already exists: {output}. Use --overwrite to replace it.",
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)

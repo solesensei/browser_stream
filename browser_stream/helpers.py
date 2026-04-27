@@ -510,7 +510,9 @@ class Ffmpeg:
         )
         subtitle_file = media_file.with_suffix(f".{subtitle_lang[:2]}.{subtitle.codec}")
         if subtitle_file.exists():
-            if utils.confirm(
+            if config.OVERWRITE_DEFAULT:
+                subtitle_file.unlink()
+            elif utils.confirm(
                 f"Subtitle file already exists: {subtitle_file.name}. Do you want to overwrite it?"
             ):
                 subtitle_file.unlink()
@@ -796,7 +798,9 @@ class Ffmpeg:
         )
         audio_file = output_file
         if audio_file.exists():
-            if utils.confirm(
+            if config.OVERWRITE_DEFAULT:
+                audio_file.unlink()
+            elif utils.confirm(
                 f"Audio file already exists: {audio_file.name}. Do you want to overwrite it?"
             ):
                 audio_file.unlink()

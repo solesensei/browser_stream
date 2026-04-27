@@ -171,7 +171,6 @@ class TestMediaExtractAudio:
                 app,
                 [
                     "--json",
-                    "--yes",
                     "media",
                     "extract-audio",
                     str(temp_video_file),
@@ -208,7 +207,6 @@ class TestMediaRepack:
                 app,
                 [
                     "--json",
-                    "--yes",
                     "media",
                     "repack",
                     str(temp_video_file),
@@ -225,8 +223,8 @@ class TestMediaRepack:
             if output_file.exists():
                 output_file.unlink()
 
-    def test_repack_existing_output_skipped(self, runner, temp_video_file):
-        """Test `media repack` with existing output (skip-if-exists)."""
+    def test_repack_existing_output_errors(self, runner, temp_video_file):
+        """Test `media repack` with existing output errors with --overwrite hint."""
         output_file = temp_video_file.with_suffix(".mp4")
         # Create the output file
         output_file.write_text("existing content")
@@ -235,7 +233,6 @@ class TestMediaRepack:
             app,
             [
                 "--json",
-                "--yes",
                 "media",
                 "repack",
                 str(temp_video_file),
@@ -244,9 +241,10 @@ class TestMediaRepack:
             ],
         )
 
-        assert result.exit_code == 0
+        assert result.exit_code != 0
         output = json.loads(result.stdout)
-        assert output["skipped"] is True
+        assert output["error"] is not None
+        assert "--overwrite" in output["error"]
         assert output["command"] == "media repack"
 
         # Clean up
@@ -266,7 +264,6 @@ class TestMediaRepack:
                 app,
                 [
                     "--json",
-                    "--yes",
                     "--overwrite",
                     "media",
                     "repack",
@@ -309,7 +306,7 @@ class TestMediaConvertSubs:
 
             result = runner.invoke(
                 app,
-                ["--json", "--yes", "media", "convert-subs", str(temp_subtitle_file)],
+                ["--json", "media", "convert-subs", str(temp_subtitle_file)],
             )
 
             assert result.exit_code == 0
@@ -366,7 +363,6 @@ class TestExitCodes:
                 app,
                 [
                     "--json",
-                    "--yes",
                     "media",
                     "extract-audio",
                     str(temp_video_file),
