@@ -116,6 +116,61 @@ def select_options_interactive(
     return select_i - 1, options[select_i - 1]
 
 
+def select_multi_options(
+    options: tp.Sequence[str],
+    option_name: str,
+    message: str = "Options:",
+    defaults: tp.Sequence[int] | None = None,
+    allow_none: bool = False,
+) -> list[int]:
+    """Interactive multi-select from numbered options.
+
+    Args:
+        options: Items to display.
+        option_name: Label used in the prompt.
+        message: Header printed above the list.
+        defaults: 0-based indices of pre-selected options (shown with ``*``).
+        allow_none: When True, show a ``[0] None`` entry. Typing ``0`` returns ``[]``.
+
+    Returns:
+        List of selected 0-based indices (empty list when the user picks "None").
+    """
+    echo.print(bb(message))
+    default_set = set(defaults or [])
+    if allow_none:
+        none_marker = " *" if not default_set else ""
+        echo.print(f"  [0] None{none_marker}")
+    for i, _option in enumerate(options):
+        marker = " *" if i in default_set else ""
+        echo.print(f"  [{i + 1}] {_option}{marker}")
+
+    if allow_none and not default_set:
+        default_str = "0"
+    elif default_set:
+        default_str = ",".join(str(i + 1) for i in sorted(default_set))
+    else:
+        default_str = "1"
+
+    raw = typer.prompt(
+        bb(f"Select {option_name} (comma-separated)"),
+        default=default_str,
+    )
+
+    # "0" means none when allowed
+    if allow_none and raw.strip() == "0":
+        return []
+
+    selected: list[int] = []
+    for part in raw.split(","):
+        part = part.strip()
+        if part.isdigit():
+            idx = int(part) - 1
+            if 0 <= idx < len(options) and idx not in selected:
+                selected.append(idx)
+
+    return selected if selected else (sorted(default_set) if default_set else [0])
+
+
 def get_temp_file(suffix: str = "", create: bool = True) -> Path:
     temp_file = Path(tempfile.mktemp(suffix=suffix, dir=Path.cwd(), prefix=".tmp"))
     if create:
@@ -138,6 +193,15 @@ def move_file(src: Path, dst: Path, overwrite: bool = False) -> None:
             raise FileExistsError(f"File `{dst}` already exists")
     echo.debug(f"Moving file `{src}` to `{dst}`")
     shutil.move(src, dst)
+
+
+def format_size(size_bytes: int | float) -> str:
+    """Format bytes as human-readable string (e.g. 4.3GB)."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(size_bytes) < 1024:
+            return f"{size_bytes:.1f}{unit}"
+        size_bytes /= 1024
+    return f"{size_bytes:.1f}PB"
 
 
 def url_encode(url: str) -> str:

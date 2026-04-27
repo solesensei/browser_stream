@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "browser-streamer"
-version = "0.3.0"
+version = "0.3.1"
 description = "A CLI tool to prepare and manage media for streaming over HTTP using Nginx or Plex direct link."
 authors = [
     {name = "Your Name", email = "your.email@example.com"}

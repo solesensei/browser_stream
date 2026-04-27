@@ -1,6 +1,6 @@
 # Browser Media Streamer
 
-![version](https://img.shields.io/badge/version-v0.3.0-blue.svg)
+![version](https://img.shields.io/badge/version-v0.3.1-blue.svg)
 
 A command-line tool for streaming local media files directly in web browsers. It prepares media files and configures Nginx or Plex for HTTP streaming, generating secure direct URLs that work seamlessly with online watch party platforms like [Metastream](https://app.getmetastream.com).
 
@@ -101,9 +101,9 @@ graph TB
    <details><summary>Install using uvx</summary>
 
    ```bash
-   uvx --from git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.0 browser-streamer --help
+   uvx --from git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.1 browser-streamer --help
    # or install persistently
-   uv tool install git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.0
+   uv tool install git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.1
    ```
 
    </details>
@@ -113,7 +113,7 @@ graph TB
    ```bash
    # Create a virtual environment and install dependencies
    python -m venv venv && source venv/bin/activate
-   pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.0
+   pip install -I git+ssh://git@github.com/solesensei/browser_stream.git@v0.3.1
    # or
    git clone git@github.com:solesensei/browser_stream.git
    pip install browser_stream/
