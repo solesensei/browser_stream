@@ -98,7 +98,7 @@ def app_callback(
     if overwrite:
         config.OVERWRITE_DEFAULT = overwrite
 
-    setup_logger(log_level=config.LOG_LEVEL)
+    setup_logger(log_level=log_level)
 
 
 @app.command("config")
@@ -423,15 +423,17 @@ def media_extract_subs_command(
             stream_index=sub_stream.index,
             subtitle_lang=sub_stream.language,
         )
-        if extracted != output:
-            extracted.rename(output)
-
         if format == "vtt":
-            vtt_output = output.with_suffix(".vtt")
-            ffmpeg.convert_subtitle_to_vtt(output, subtitle_lang=sub_stream.language)
-            if output.exists():
-                output.unlink()
-            output = vtt_output
+            converted = ffmpeg.convert_subtitle_to_vtt(
+                extracted, subtitle_lang=sub_stream.language
+            )
+            if extracted.exists() and extracted != converted:
+                extracted.unlink()
+            if converted != output:
+                converted.rename(output)
+        else:
+            if extracted != output:
+                extracted.rename(output)
 
         output_size = output.stat().st_size
         result = MediaResult(
@@ -499,7 +501,11 @@ def media_convert_subs_command(
             except Exception:
                 subtitle_lang = "eng"
 
-        ffmpeg.convert_subtitle_to_vtt(subtitle_file, subtitle_lang=subtitle_lang)
+        converted = ffmpeg.convert_subtitle_to_vtt(
+            subtitle_file, subtitle_lang=subtitle_lang
+        )
+        if converted != output:
+            converted.rename(output)
         output_size = output.stat().st_size
 
         result = MediaResult(
@@ -655,27 +661,27 @@ def media_repack_command(
         file_okay=True,
         dir_okay=True,
     ),
-    audio_streams: str = typer.Option(
+    audio_streams: str | None = typer.Option(
         None,
         "--audio-streams",
         help="Audio stream indices to include (comma-separated, e.g. 0,2)",
     ),
-    audio_lang: str = typer.Option(
+    audio_lang: str | None = typer.Option(
         None,
         "--audio-lang",
         help="Audio language code(s) to include (comma-separated, e.g. jpn,eng)",
     ),
-    subtitle_streams: str = typer.Option(
+    subtitle_streams: str | None = typer.Option(
         None,
         "--subtitle-streams",
         help="Subtitle stream indices to include (comma-separated, e.g. 0,1)",
     ),
-    subtitle_lang: str = typer.Option(
+    subtitle_lang: str | None = typer.Option(
         None,
         "--subtitle-lang",
         help="Subtitle language code(s) to include (comma-separated, e.g. eng,rus)",
     ),
-    subtitle_file: Path = typer.Option(
+    subtitle_file: Path | None = typer.Option(
         None,
         "--subtitle-file",
         help="External subtitle file to embed",
@@ -686,7 +692,7 @@ def media_repack_command(
         "--re-encode-video",
         help="Re-encode video stream (uses FFPEG_ENCODE_CRF and FFPEG_ENCODE_PRESET)",
     ),
-    extra_args: str = typer.Option(
+    extra_args: str | None = typer.Option(
         None,
         "--extra-args",
         help="Additional ffmpeg arguments (as a quoted string)",
@@ -882,6 +888,8 @@ def _repack_single_file(
     """Helper to repack a single file."""
     if output is None:
         output = media.with_suffix(".mp4")
+    elif output.is_dir():
+        output = output / media.with_suffix(".mp4").name
 
     if output.exists() and not config.OVERWRITE_DEFAULT:
         return MediaResult(
