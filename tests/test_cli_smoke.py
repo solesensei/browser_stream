@@ -376,5 +376,4 @@ class TestExitCodes:
                 ],
             )
 
-            # Should exit with error code
             assert result.exit_code != 0

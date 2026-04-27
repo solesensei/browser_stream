@@ -15,14 +15,16 @@ logger = logging.getLogger(__name__)
 
 
 def setup_logger(log_level: str | None = None) -> None:
-    if log_level:
-        level_map = {
-            "debug": logging.DEBUG,
-            "info": logging.INFO,
-            "warn": logging.WARNING,
-            "error": logging.ERROR,
-        }
-        log_level_int = level_map.get(log_level.lower(), logging.INFO)
+    level_map = {
+        "debug": logging.DEBUG,
+        "info": logging.INFO,
+        "warn": logging.WARNING,
+        "warning": logging.WARNING,
+        "error": logging.ERROR,
+    }
+    effective = log_level or config.LOG_LEVEL
+    if effective:
+        log_level_int = level_map.get(effective.lower(), logging.INFO)
     else:
         log_level_int = logging.DEBUG if config.DEBUG else logging.INFO
 
