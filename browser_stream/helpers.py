@@ -635,6 +635,7 @@ class Ffmpeg:
         cls,
         input_file: Path,
         output_file: Path,
+        audio_file: Path | None = None,
         audio_langs: list[str] | None = None,
         subtitle_langs: list[str] | None = None,
         audio_indices: list[int] | None = None,
@@ -643,18 +644,31 @@ class Ffmpeg:
     ) -> Path:
         """Repack media file to MP4.
 
-        Two modes:
-        - **Language mode** (``audio_langs``/``subtitle_langs``): maps every
-          stream of the given languages.  Used by the ``--yes`` path.
-        - **Index mode** (``audio_indices``/``subtitle_indices``): maps
-          specific streams by ffmpeg index.  Used after interactive selection.
+        Three audio modes (mutually exclusive):
+        - **External file** (``audio_file``): muxes audio from a separate file.
+        - **Index mode** (``audio_indices``): maps specific streams by ffmpeg index.
+        - **Language mode** (``audio_langs``): maps every stream of the given languages.
         """
         echo.info(f"Repacking: {input_file.name} -> {output_file.name}")
 
-        args: list[str | Path] = ["-i", input_file, "-map", "0:v:0"]
+        args: list[str | Path] = ["-i", input_file]
         has_subs = False
 
-        if audio_indices is not None or subtitle_indices is not None:
+        # Add external audio as second input
+        audio_input_idx = 1  # index of external audio input in ffmpeg
+        if audio_file is not None:
+            args.extend(["-i", audio_file])
+
+        args.extend(["-map", "0:v:0"])
+
+        if audio_file is not None:
+            # Map audio from external file
+            args.extend(["-map", f"{audio_input_idx}:a:0"])
+            # Subtitles still come from input 0
+            for idx in subtitle_indices or []:
+                args.extend(["-map", f"0:{idx}"])
+                has_subs = True
+        elif audio_indices is not None or subtitle_indices is not None:
             # --- index-based mapping ---
             for idx in audio_indices or []:
                 args.extend(["-map", f"0:{idx}"])

@@ -660,6 +660,12 @@ def media_repack_command(
         "--audio-lang",
         help="Audio language code(s) to include (comma-separated, e.g. jpn,eng)",
     ),
+    audio_file: Path | None = typer.Option(
+        None,
+        "--audio-file",
+        help="External audio file to mux in (e.g. extracted AAC)",
+        exists=True,
+    ),
     subtitle_streams: str | None = typer.Option(
         None,
         "--subtitle-streams",
@@ -734,6 +740,10 @@ def media_repack_command(
 
     if audio_streams and audio_lang:
         raise Exit("Cannot specify both --audio-streams and --audio-lang", code=1)
+    if audio_file and (audio_streams or audio_lang):
+        raise Exit(
+            "Cannot specify both --audio-file and --audio-streams/--audio-lang", code=1
+        )
     if subtitle_streams and subtitle_lang:
         raise Exit("Cannot specify both --subtitle-streams and --subtitle-lang", code=1)
 
@@ -792,6 +802,7 @@ def media_repack_command(
                 )
                 result = _repack_single_file(
                     video_file,
+                    audio_file,
                     audio_indices,
                     subtitle_indices,
                     audio_langs,
@@ -819,6 +830,7 @@ def media_repack_command(
                 )
                 result = _repack_single_file(
                     video_file,
+                    audio_file,
                     audio_indices,
                     subtitle_indices,
                     audio_langs,
@@ -852,6 +864,7 @@ def media_repack_command(
     else:
         result = _repack_single_file(
             media,
+            audio_file,
             audio_indices,
             subtitle_indices,
             audio_langs,
@@ -878,6 +891,7 @@ def media_repack_command(
 
 def _repack_single_file(
     media: Path,
+    audio_file: Path | None,
     audio_indices: list[int] | None,
     subtitle_indices: list[int] | None,
     audio_langs: list[str] | None,
@@ -917,6 +931,7 @@ def _repack_single_file(
         ffmpeg.repack_to_mp4(
             input_file=media,
             output_file=output,
+            audio_file=audio_file,
             audio_indices=audio_indices,
             subtitle_indices=subtitle_indices,
             audio_langs=audio_langs,
