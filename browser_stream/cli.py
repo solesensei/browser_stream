@@ -705,6 +705,11 @@ def media_repack_command(
 
     # If external subtitle file provided, embed it first
     temp_media: Path | None = None
+    if subtitle_file and media.is_dir():
+        raise Exit(
+            "--subtitle-file cannot be used with a directory. Pass a single file instead.",
+            code=1,
+        )
     if subtitle_file:
         ffmpeg = Ffmpeg()
         temp_media = media.with_name(f"{media.stem}.with_subs.mp4")
@@ -779,7 +784,11 @@ def media_repack_command(
                 code=1,
             )
         fs = FS()
-        video_files = list(fs.get_video_files(media, recursive_depth=0))
+        video_files = [
+            f
+            for f in fs.get_video_files(media, recursive_depth=0)
+            if f.suffix.lower() != ".mp4"
+        ]
         if not video_files:
             raise Exit(f"No video files found in {media}", code=1)
 
@@ -890,6 +899,15 @@ def _repack_single_file(
         output = media.with_suffix(".mp4")
     elif output.is_dir():
         output = output / media.with_suffix(".mp4").name
+
+    if output.resolve() == media.resolve():
+        return MediaResult(
+            command="media repack",
+            input=str(media),
+            output=str(output),
+            skipped=True,
+            note="Input and output are the same file",
+        )
 
     if output.exists() and not config.OVERWRITE_DEFAULT:
         return MediaResult(
