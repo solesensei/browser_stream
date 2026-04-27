@@ -152,7 +152,7 @@ graph TB
 | Command | Purpose |
 |---------|---------|
 | `stream FILE [--server nginx\|plex] [--audio-lang CODE] [--subtitle-lang CODE]` | Prepare media and print streaming URL (interactive by default) |
-| `stream FILE --yes --audio-lang CODE --subtitle-lang CODE` | Non-interactive mode—use `--yes` to suppress prompts |
+| `--yes stream FILE --audio-lang CODE --subtitle-lang CODE` | Non-interactive mode—use `--yes` to suppress prompts |
 
 ### Quick Examples
 

@@ -306,11 +306,15 @@ def media_info_command(
 @media_app.command("extract-audio")
 def media_extract_audio_command(
     media_file: Path = typer.Argument(..., help="Path to media file", exists=True),
-    stream: int = typer.Option(None, "--stream", help="Audio stream index (0-based)"),
-    lang: str = typer.Option(None, "--lang", help="Audio language code (e.g., eng, jpn)"),
+    stream: int | None = typer.Option(
+        None, "--stream", help="Audio stream index (0-based)"
+    ),
+    lang: str | None = typer.Option(
+        None, "--lang", help="Audio language code (e.g., eng, jpn)"
+    ),
     codec: str = typer.Option("aac", "--codec", help="Output audio codec"),
     bitrate: str = typer.Option("192k", "--bitrate", help="Output audio bitrate"),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Extract audio stream from media file."""
     ffmpeg = Ffmpeg()
@@ -337,7 +341,7 @@ def media_extract_audio_command(
         )
         if config.JSON_OUTPUT:
             echo.print_json(result.to_dict())
-        raise Exit(result.error, code=1)
+        raise Exit(result.error or "", code=1)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     input_size = media_file.stat().st_size
@@ -345,7 +349,7 @@ def media_extract_audio_command(
     try:
         ffmpeg.extract_audio_with_convert(
             media_file=media_file,
-            stream_index=info.audios.index(audio_stream),
+            stream_index=audio_stream.index,
             output_file=output,
             codec=codec,
             bitrate=bitrate,
@@ -375,12 +379,14 @@ def media_extract_audio_command(
 @media_app.command("extract-subs")
 def media_extract_subs_command(
     media_file: Path = typer.Argument(..., help="Path to media file", exists=True),
-    stream: int = typer.Option(None, "--stream", help="Subtitle stream index (0-based)"),
-    lang: str = typer.Option(
+    stream: int | None = typer.Option(
+        None, "--stream", help="Subtitle stream index (0-based)"
+    ),
+    lang: str | None = typer.Option(
         None, "--lang", help="Subtitle language code (e.g., eng, jpn)"
     ),
     format: str = typer.Option("srt", "--format", help="Output format (srt or vtt)"),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Extract subtitle stream from media file."""
     ffmpeg = Ffmpeg()
@@ -406,22 +412,25 @@ def media_extract_subs_command(
         )
         if config.JSON_OUTPUT:
             echo.print_json(result.to_dict())
-        raise Exit(result.error, code=1)
+        raise Exit(result.error or "", code=1)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     input_size = media_file.stat().st_size
 
     try:
-        sub_idx = info.subtitles.index(sub_stream)
-        ffmpeg.extract_subtitle(
+        extracted = ffmpeg.extract_subtitle(
             media_file=media_file,
-            stream_index=sub_idx,
+            stream_index=sub_stream.index,
             subtitle_lang=sub_stream.language,
         )
+        if extracted != output:
+            extracted.rename(output)
+
         if format == "vtt":
             vtt_output = output.with_suffix(".vtt")
             ffmpeg.convert_subtitle_to_vtt(output, subtitle_lang=sub_stream.language)
-            output.unlink()
+            if output.exists():
+                output.unlink()
             output = vtt_output
 
         output_size = output.stat().st_size
@@ -449,11 +458,11 @@ def media_extract_subs_command(
 @media_app.command("convert-subs")
 def media_convert_subs_command(
     subtitle_file: Path = typer.Argument(..., help="Path to subtitle file", exists=True),
-    lang: str = typer.Option(
+    lang: str | None = typer.Option(
         None, "--lang", help="Subtitle language code (eng, jpn, etc.)"
     ),
     to: str = typer.Option("vtt", "--to", help="Output format (vtt)"),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Convert subtitle file to VTT format."""
     if output is None:
@@ -468,7 +477,7 @@ def media_convert_subs_command(
         )
         if config.JSON_OUTPUT:
             echo.print_json(result.to_dict())
-        raise Exit(result.error, code=1)
+        raise Exit(result.error or "", code=1)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     input_size = subtitle_file.stat().st_size
@@ -520,9 +529,9 @@ def media_embed_subs_command(
     subtitle_file: Path = typer.Option(
         ..., "--subtitles", "-s", help="Path to subtitle file", exists=True
     ),
-    lang: str = typer.Option(None, "--lang", help="Subtitle language code"),
+    lang: str | None = typer.Option(None, "--lang", help="Subtitle language code"),
     burn: bool = typer.Option(False, "--burn", help="Burn subtitles into video"),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Embed subtitles into video file."""
     if output is None:
@@ -537,7 +546,7 @@ def media_embed_subs_command(
         )
         if config.JSON_OUTPUT:
             echo.print_json(result.to_dict())
-        raise Exit(result.error, code=1)
+        raise Exit(result.error or "", code=1)
 
     output.parent.mkdir(parents=True, exist_ok=True)
     input_size = video_file.stat().st_size
@@ -592,7 +601,7 @@ def media_html_command(
     video_file: Path = typer.Argument(..., help="Path to video file", exists=True),
     subtitles: Path = typer.Option(..., help="Path to subtitle file"),
     lang: str = typer.Option("eng", "--lang", help="Subtitle language"),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Generate HTML video player with subtitles."""
     if output is None:
@@ -607,13 +616,15 @@ def media_html_command(
         )
         if config.JSON_OUTPUT:
             echo.print_json(result.to_dict())
-        raise Exit(result.error, code=1)
+        raise Exit(result.error or "", code=1)
 
     output.parent.mkdir(parents=True, exist_ok=True)
 
     try:
         html = HTML()
-        html_content = html.get_video_html_with_subtitles(video_file, subtitles, lang)
+        html_content = html.get_video_html_with_subtitles(
+            str(video_file), str(subtitles), lang
+        )
         output.write_text(html_content)
 
         result = MediaResult(
@@ -680,18 +691,18 @@ def media_repack_command(
         "--extra-args",
         help="Additional ffmpeg arguments (as a quoted string)",
     ),
-    output: Path = typer.Option(None, "-o", "--output", help="Output file path"),
+    output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
     """Repack media file to MP4 with selected streams."""
 
     media = utils.resolve_path_pwd(media)
 
     # If external subtitle file provided, embed it first
+    temp_media: Path | None = None
     if subtitle_file:
         ffmpeg = Ffmpeg()
-        temp_media = media.with_stem(f"{media.stem}.with_subs")
+        temp_media = media.with_name(f"{media.stem}.with_subs.mp4")
         try:
-            # Detect subtitle language
             sub_lang = None
             try:
                 sub_info = ffmpeg.get_media_info(subtitle_file)
@@ -709,8 +720,10 @@ def media_repack_command(
                 subtitle_file=subtitle_file,
                 subtitle_lang=sub_lang,
             )
-            media = temp_media  # Use the temp file with embedded subs for repack
+            media = temp_media
         except Exception as e:
+            if temp_media and temp_media.exists():
+                temp_media.unlink()
             raise Exit(f"Failed to embed subtitle file: {e}", code=1) from e
 
     # Parse stream indices if provided
@@ -754,6 +767,11 @@ def media_repack_command(
 
     # Handle directory input
     if media.is_dir():
+        if output is not None and not output.is_dir():
+            raise Exit(
+                "When repacking a directory, --output must be a directory (or omit it)",
+                code=1,
+            )
         fs = FS()
         video_files = list(fs.get_video_files(media, recursive_depth=0))
         if not video_files:
@@ -763,6 +781,9 @@ def media_repack_command(
             results = []
             has_error = False
             for video_file in video_files:
+                file_output = (
+                    output / video_file.with_suffix(".mp4").name if output else None
+                )
                 result = _repack_single_file(
                     video_file,
                     audio_indices,
@@ -770,7 +791,7 @@ def media_repack_command(
                     audio_langs,
                     subtitle_langs,
                     extra_args_list,
-                    output,
+                    file_output,
                 )
                 results.append(result.to_dict())
                 if result.error:
@@ -787,6 +808,9 @@ def media_repack_command(
             table.add_column("Note")
 
             for video_file in video_files:
+                file_output = (
+                    output / video_file.with_suffix(".mp4").name if output else None
+                )
                 result = _repack_single_file(
                     video_file,
                     audio_indices,
@@ -794,7 +818,7 @@ def media_repack_command(
                     audio_langs,
                     subtitle_langs,
                     extra_args_list,
-                    output,
+                    file_output,
                 )
                 if result.error:
                     table.add_row(
@@ -841,6 +865,9 @@ def media_repack_command(
                 echo.info(f"Skipped: {result.note}")
             else:
                 echo.info(f"Completed: {result.input_size} -> {result.output_size}")
+
+    if temp_media and temp_media.exists():
+        temp_media.unlink()
 
 
 def _repack_single_file(
@@ -934,11 +961,6 @@ def stream_command(
         exists=True,
         show_default=False,
     ),
-    stream_audio: int | None = typer.Option(
-        None,
-        "--stream-audio",
-        help="Audio stream index (0-based ffmpeg index)",
-    ),
     subtitle_lang: str | None = typer.Option(
         None,
         help="Subtitle language, e.g. English, Spanish",
@@ -951,11 +973,6 @@ def stream_command(
         file_okay=True,
         exists=True,
         show_default=False,
-    ),
-    stream_subtitle: int | None = typer.Option(
-        None,
-        "--stream-subtitle",
-        help="Subtitle stream index (0-based ffmpeg index)",
     ),
     burn_subtitles: bool = typer.Option(
         False,
@@ -1015,11 +1032,6 @@ def stream_command(
         Non-interactive mode (with --yes):
         $ browser-streamer --yes stream media.mkv --audio-lang jpn --subtitle-lang eng
     """
-    if stream_audio is not None and audio_lang is not None:
-        raise Exit("Cannot specify both --stream-audio and --audio-lang", code=1)
-    if stream_subtitle is not None and subtitle_lang is not None:
-        raise Exit("Cannot specify both --stream-subtitle and --subtitle-lang", code=1)
-
     with_nginx = server.lower() == "nginx"
     with_plex = server.lower() == "plex"
 

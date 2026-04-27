@@ -106,11 +106,16 @@ def resolve_stream(
     """
     streams = info.audios if kind == "audio" else info.subtitles
 
-    # If stream index is specified, use it
+    # If stream index is specified, match by absolute ffmpeg index
     if stream is not None:
-        if 0 <= stream < len(streams):
-            return streams[stream]
-        raise Exit(f"Stream {stream} not found for {kind}", code=1)
+        match = next((s for s in streams if s.index == stream), None)
+        if match is not None:
+            return match
+        available = [s.index for s in streams]
+        raise Exit(
+            f"Stream {stream} not found for {kind}. Available indices: {available}",
+            code=1,
+        )
 
     # If language is specified, filter by language
     if lang is not None:
@@ -119,7 +124,7 @@ def resolve_stream(
         if len(matches) == 1:
             return matches[0]
         elif len(matches) > 1:
-            hint = f"Use --stream N to select a specific {kind} (e.g., --stream {streams.index(matches[0])})"
+            hint = f"Use --stream N to select a specific {kind} (e.g., --stream {matches[0].index})"
             raise utils.PromptNeeded(
                 f"Multiple {kind} streams with language '{lang}'",
                 hint=hint,
@@ -130,7 +135,7 @@ def resolve_stream(
 
     # No explicit selection — in non-interactive mode, this is an error
     if config.NON_INTERACTIVE:
-        options = ", ".join(f"--stream {i}" for i in range(len(streams)))
+        options = ", ".join(f"--stream {s.index}" for s in streams)
         hint = f"Specify --stream N or --lang CODE. Options: {options}"
         raise utils.PromptNeeded(
             f"Select {kind} stream",
@@ -157,6 +162,9 @@ def build_stream_url_nginx(
     exit_if(not conf.nginx_domain_name, "Nginx domain name not found")
     exit_if(not conf.nginx_port, "Nginx port not found")
     exit_if(not conf.media_dir, "Media directory not found")
+    assert conf.media_dir is not None
+    assert conf.nginx_domain_name is not None
+    assert conf.nginx_secret is not None
     relative_path = media_file.relative_to(conf.media_dir)
     return utils.url_encode(
         f"https://{conf.nginx_domain_name}:{conf.nginx_port}/{conf.media_dir.as_posix().lstrip('/')}/{relative_path.as_posix()}?x-token={conf.nginx_secret}"
@@ -170,6 +178,8 @@ def build_stream_url_plex(
     exit_if(not conf.plex_x_token, "Plex X-Token not found")
     exit_if(not conf.host_url, "Host URL not found")
     exit_if(not conf.plex_server_id, "Plex server ID not found")
+    assert conf.plex_x_token is not None
+    assert conf.host_url is not None
     plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
     return utils.url_encode(plex.get_stream_url(media_file))
 

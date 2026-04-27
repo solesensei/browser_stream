@@ -58,6 +58,9 @@ def setup_logger(log_level: str | None = None) -> None:
     logging.addLevelName(logging.DEBUG, "debug")
 
     logger = logging.getLogger("browser_stream")
+    for existing in list(logger.handlers):
+        logger.removeHandler(existing)
+        existing.close()
     handler.setLevel(log_level_int)
     logger.addHandler(handler)
     logger.setLevel(log_level_int)

@@ -86,6 +86,10 @@ markers = [
     "slow: Slow running tests"
 ]
 
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.3.0",

@@ -53,14 +53,52 @@ def mock_media_info():
         FfmpegStream(index=4, type="subtitle", codec="subrip", language="rus"),
     ]
     info.to_dict.return_value = {
-        "video": {"index": 0, "codec": "h264", "language": None},
-        "audios": [
-            {"index": 1, "codec": "aac", "language": "eng"},
-            {"index": 2, "codec": "mp3", "language": "jpn"},
-        ],
-        "subtitles": [
-            {"index": 3, "codec": "subrip", "language": "eng"},
-            {"index": 4, "codec": "subrip", "language": "rus"},
+        "filename": "test.mkv",
+        "title": "Test Video",
+        "bitrate": "5000 kb/s",
+        "duration": "0:30:00",
+        "comment": None,
+        "streams": [
+            {
+                "index": 0,
+                "type": "video",
+                "codec": "h264",
+                "title": "",
+                "encoding_info": None,
+                "language": None,
+            },
+            {
+                "index": 1,
+                "type": "audio",
+                "codec": "aac",
+                "title": "",
+                "encoding_info": None,
+                "language": "eng",
+            },
+            {
+                "index": 2,
+                "type": "audio",
+                "codec": "mp3",
+                "title": "",
+                "encoding_info": None,
+                "language": "jpn",
+            },
+            {
+                "index": 3,
+                "type": "subtitle",
+                "codec": "subrip",
+                "title": "",
+                "encoding_info": None,
+                "language": "eng",
+            },
+            {
+                "index": 4,
+                "type": "subtitle",
+                "codec": "subrip",
+                "title": "",
+                "encoding_info": None,
+                "language": "rus",
+            },
         ],
     }
     return info
@@ -81,8 +119,9 @@ class TestMediaInfo:
 
             assert result.exit_code == 0
             output = json.loads(result.stdout)
-            assert "video" in output or "audios" in output
-            assert len(output.get("audios", [])) == 2
+            assert "streams" in output
+            audio_streams = [s for s in output["streams"] if s["type"] == "audio"]
+            assert len(audio_streams) == 2
 
     def test_media_info_json_only_audio(self, runner, temp_video_file, mock_media_info):
         """Test `media info` with --json and --only audio."""
@@ -99,7 +138,7 @@ class TestMediaInfo:
             assert result.exit_code == 0
             output = json.loads(result.stdout)
             assert "audio" in output
-            assert "videos" not in output
+            assert all(s["type"] == "audio" for s in output["audio"])
 
 
 class TestMediaExtractAudio:
@@ -307,7 +346,7 @@ class TestLogLevel:
             assert result.exit_code == 0
             # Should have JSON in stdout and minimal/no info in stderr
             output = json.loads(result.stdout)
-            assert "audios" in output
+            assert "streams" in output
 
 
 class TestExitCodes:
