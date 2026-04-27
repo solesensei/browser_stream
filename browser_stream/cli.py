@@ -463,12 +463,17 @@ def media_convert_subs_command(
     lang: str | None = typer.Option(
         None, "--lang", help="Subtitle language code (eng, jpn, etc.)"
     ),
-    to: str = typer.Option("vtt", "--to", help="Output format (vtt)"),
+    to: str = typer.Option(
+        "vtt",
+        "--to",
+        help="Output format (vtt, srt, ass, ssa)",
+        click_type=click.Choice(["vtt", "srt", "ass", "ssa"], case_sensitive=False),
+    ),
     output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
-    """Convert subtitle file to VTT format."""
+    """Convert subtitle file between formats (srt, vtt, ass, ssa)."""
     if output is None:
-        output = subtitle_file.with_suffix(".vtt")
+        output = subtitle_file.with_suffix(f".{to}")
 
     if output.exists() and not config.OVERWRITE_DEFAULT:
         result = MediaResult(
@@ -489,23 +494,7 @@ def media_convert_subs_command(
         fs.enforce_utf8(subtitle_file)
 
         ffmpeg = Ffmpeg()
-        # If language not specified, try to detect from subtitle stream
-        subtitle_lang = lang
-        if not subtitle_lang:
-            try:
-                sub_info = ffmpeg.get_media_info(subtitle_file)
-                if sub_info.subtitles:
-                    subtitle_lang = sub_info.subtitles[0].language or "eng"
-                else:
-                    subtitle_lang = "eng"
-            except Exception:
-                subtitle_lang = "eng"
-
-        converted = ffmpeg.convert_subtitle_to_vtt(
-            subtitle_file, subtitle_lang=subtitle_lang
-        )
-        if converted != output:
-            converted.rename(output)
+        ffmpeg.convert_subtitle(subtitle_file, output_file=output, subtitle_lang=lang)
         output_size = output.stat().st_size
 
         result = MediaResult(

@@ -304,9 +304,8 @@ class TestMediaConvertSubs:
                 vtt_file.write_text(
                     "WEBVTT\n\n00:00:00.000 --> 00:00:05.000\nTest subtitle"
                 )
-                return vtt_file
 
-            mock_ffmpeg.convert_subtitle_to_vtt.side_effect = create_vtt
+            mock_ffmpeg.convert_subtitle.side_effect = create_vtt
 
             result = runner.invoke(
                 app,

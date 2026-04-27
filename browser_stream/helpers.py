@@ -706,20 +706,46 @@ class Ffmpeg:
     def convert_subtitle_to_vtt(
         self, subtitle_file: Path, subtitle_lang: str | None
     ) -> Path:
-        echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
-        output_file = subtitle_file.with_suffix(".vtt")
+        return self.convert_subtitle(
+            subtitle_file,
+            output_file=subtitle_file.with_suffix(".vtt"),
+            subtitle_lang=subtitle_lang,
+        )
+
+    SUBTITLE_CODEC_MAP: tp.ClassVar[dict[str, str]] = {
+        ".vtt": "webvtt",
+        ".srt": "srt",
+        ".ass": "ass",
+        ".ssa": "ssa",
+    }
+
+    def convert_subtitle(
+        self,
+        subtitle_file: Path,
+        output_file: Path,
+        subtitle_lang: str | None = None,
+    ) -> Path:
         self._assert_input_output_equal(subtitle_file, output_file)
+        codec = self.SUBTITLE_CODEC_MAP.get(output_file.suffix.lower())
+        if codec is None:
+            raise Exit(
+                f"Unsupported subtitle format: {output_file.suffix}. "
+                f"Supported: {', '.join(self.SUBTITLE_CODEC_MAP)}"
+            )
         media_info = self.get_media_info(subtitle_file)
         subtitle_lang = (
             subtitle_lang
-            or media_info.subtitles[0].language
-            or utils.prompt_subtitles(media_info.subtitles[0])
+            or (media_info.subtitles[0].language if media_info.subtitles else None)
+            or "eng"
         ).lower()[:3]
+        echo.info(
+            f"Converting {subtitle_file.name} -> {output_file.suffix} [{subtitle_lang}]"
+        )
         self._run(
             "-i",
             subtitle_file,
             "-c:s",
-            "webvtt",
+            codec,
             "-metadata:s:s:0",
             f"language={subtitle_lang}",
             "-y",
