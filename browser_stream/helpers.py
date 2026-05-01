@@ -633,7 +633,11 @@ class Ffmpeg:
         return output_file
 
     @classmethod
-    def _needs_audio_transcode(cls, input_file: Path, audio_file: Path | None = None) -> bool:
+    def _needs_audio_transcode(
+        cls,
+        input_file: Path,
+        audio_file: Path | None = None,
+    ) -> bool:
         if audio_file is not None:
             info = cls.get_media_info(audio_file)
             codecs = {s.codec for s in info.audios}
@@ -693,8 +697,12 @@ class Ffmpeg:
         # Auto-detect audio codec compatibility with MP4
         transcode_audio = cls._needs_audio_transcode(input_file, audio_file)
         if transcode_audio:
-            echo.info(f"Audio codec incompatible with MP4, transcoding to {config.BROWSER_AUDIO_CODEC}")
-            args.extend(["-c:a", config.BROWSER_AUDIO_CODEC, "-b:a", config.BROWSER_AUDIO_BITRATE])
+            echo.info(
+                f"Audio codec incompatible with MP4, transcoding to {config.BROWSER_AUDIO_CODEC}"
+            )
+            args.extend(
+                ["-c:a", config.BROWSER_AUDIO_CODEC, "-b:a", config.BROWSER_AUDIO_BITRATE]
+            )
         else:
             args.extend(["-c:a", "copy"])
 
@@ -708,7 +716,9 @@ class Ffmpeg:
 
         # Set audio language metadata
         if audio_lang_metadata:
-            args.extend(["-metadata:s:a:0", f"language={audio_lang_metadata.lower()[:3]}"])
+            args.extend(
+                ["-metadata:s:a:0", f"language={audio_lang_metadata.lower()[:3]}"]
+            )
 
         args.extend(
             [
@@ -742,14 +752,22 @@ class Ffmpeg:
         elif subtitle_langs:
             for lang in subtitle_langs:
                 sub_stream = next(
-                    (s for s in media_info.subtitles if s.language and s.language == lang),
+                    (
+                        s
+                        for s in media_info.subtitles
+                        if s.language and s.language == lang
+                    ),
                     None,
                 )
                 if sub_stream:
                     break
         elif subtitle_lang:
             sub_stream = next(
-                (s for s in media_info.subtitles if s.language and s.language == subtitle_lang),
+                (
+                    s
+                    for s in media_info.subtitles
+                    if s.language and s.language == subtitle_lang
+                ),
                 None,
             )
 
@@ -759,11 +777,16 @@ class Ffmpeg:
         lang = subtitle_lang or sub_stream.language or "und"
         echo.info(f"Extracting subtitle [{lang}] -> {output_srt.name}")
         self._run(
-            "-i", input_file,
-            "-map", f"0:{sub_stream.index}",
-            "-c:s", "srt",
-            "-metadata:s:s:0", f"language={lang.lower()[:3]}",
-            "-y", output_srt,
+            "-i",
+            input_file,
+            "-map",
+            f"0:{sub_stream.index}",
+            "-c:s",
+            "srt",
+            "-metadata:s:s:0",
+            f"language={lang.lower()[:3]}",
+            "-y",
+            output_srt,
             live_output=True,
         )
         return output_srt

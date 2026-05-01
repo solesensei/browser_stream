@@ -930,7 +930,9 @@ def _repack_single_file(
             srt_output = output.with_suffix(".srt")
             sub_ext = subtitle_file.suffix.lower()
             if sub_ext == ".srt":
-                utils.move_file(subtitle_file, srt_output, overwrite=config.OVERWRITE_DEFAULT)
+                utils.move_file(
+                    subtitle_file, srt_output, overwrite=config.OVERWRITE_DEFAULT
+                )
             else:
                 ffmpeg.convert_subtitle(
                     subtitle_file,
