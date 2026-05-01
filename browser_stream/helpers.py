@@ -698,14 +698,18 @@ class Ffmpeg:
         else:
             args.extend(["-c:a", "copy"])
 
-        args.extend(["-c:v", "copy"])
+        # Exclude subtitle/data streams — subs are extracted externally
+        args.extend(["-sn", "-dn"])
+
+        if extra_args:
+            args.extend(extra_args)
+        else:
+            args.extend(["-c:v", "copy"])
 
         # Set audio language metadata
         if audio_lang_metadata:
             args.extend(["-metadata:s:a:0", f"language={audio_lang_metadata.lower()[:3]}"])
 
-        if extra_args:
-            args.extend(extra_args)
         args.extend(
             [
                 "-movflags",
