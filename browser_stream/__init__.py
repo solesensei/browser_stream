@@ -1185,10 +1185,16 @@ def repack_media_files(
                 input_file=input_file,
                 output_file=output_file,
                 audio_langs=audio_langs,
-                subtitle_langs=subtitle_langs,
                 audio_indices=audio_idx,
-                subtitle_indices=sub_idx,
             )
+            if sub_idx or subtitle_langs:
+                srt_output = output_file.with_suffix(".srt")
+                ffmpeg.extract_subs_to_file(
+                    input_file=input_file,
+                    output_srt=srt_output,
+                    subtitle_indices=sub_idx or None,
+                    subtitle_langs=subtitle_langs or None,
+                )
             output_size = output_file.stat().st_size
             results.append(
                 RepackResult(

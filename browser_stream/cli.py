@@ -348,6 +348,7 @@ def media_extract_audio_command(
             media_file=media_file,
             stream_index=audio_stream.index,
             output_file=output,
+            audio_lang=lang or audio_stream.language,
             codec=codec,
             bitrate=bitrate,
         )
@@ -418,19 +419,23 @@ def media_extract_subs_command(
         extracted = ffmpeg.extract_subtitle(
             media_file=media_file,
             stream_index=sub_stream.index,
-            subtitle_lang=sub_stream.language,
+            subtitle_lang=lang or sub_stream.language,
         )
-        if format == "vtt":
-            converted = ffmpeg.convert_subtitle_to_vtt(
-                extracted, subtitle_lang=sub_stream.language
+        src_ext = extracted.suffix.lower()
+        dst_ext = f".{format}"
+        if src_ext != dst_ext:
+            converted = ffmpeg.convert_subtitle(
+                extracted,
+                output_file=extracted.with_suffix(dst_ext),
+                subtitle_lang=lang or sub_stream.language,
             )
             if extracted.exists() and extracted != converted:
                 extracted.unlink()
             if converted != output:
-                converted.rename(output)
+                utils.move_file(converted, output, overwrite=config.OVERWRITE_DEFAULT)
         else:
             if extracted != output:
-                extracted.rename(output)
+                utils.move_file(extracted, output, overwrite=config.OVERWRITE_DEFAULT)
 
         output_size = output.stat().st_size
         result = MediaResult(
@@ -663,20 +668,15 @@ def media_repack_command(
         help="External audio file to mux in (e.g. extracted AAC)",
         exists=True,
     ),
-    subtitle_streams: str | None = typer.Option(
-        None,
-        "--subtitle-streams",
-        help="Subtitle stream indices to include (comma-separated, e.g. 0,1)",
-    ),
     subtitle_lang: str | None = typer.Option(
         None,
         "--subtitle-lang",
-        help="Subtitle language code(s) to include (comma-separated, e.g. eng,rus)",
+        help="Extract subtitles as external SRT (language code, e.g. rus,eng)",
     ),
     subtitle_file: Path | None = typer.Option(
         None,
         "--subtitle-file",
-        help="External subtitle file to embed",
+        help="External subtitle file to copy alongside output (converted to SRT)",
         exists=True,
     ),
     re_encode_video: bool = typer.Option(
@@ -691,47 +691,18 @@ def media_repack_command(
     ),
     output: Path | None = typer.Option(None, "-o", "--output", help="Output file path"),
 ):
-    """Repack media file to MP4 with selected streams."""
+    """Repack media file to MP4 with selected streams.
+
+    \b
+    Audio: auto-transcodes incompatible codecs (FLAC, etc.) to AAC.
+    Video: copies by default, use --re-encode-video for H.264 re-encode.
+    Subtitles: extracted as external SRT file (same name as output MP4).
+    """
 
     media = utils.resolve_path_pwd(media)
 
-    # If external subtitle file provided, embed it first
-    temp_media: Path | None = None
-    if subtitle_file and media.is_dir():
-        raise Exit(
-            "--subtitle-file cannot be used with a directory. Pass a single file instead.",
-            code=1,
-        )
-    if subtitle_file:
-        ffmpeg = Ffmpeg()
-        temp_media = media.with_name(f"{media.stem}.with_subs.mp4")
-        try:
-            sub_lang = None
-            try:
-                sub_info = ffmpeg.get_media_info(subtitle_file)
-                if sub_info.subtitles:
-                    sub_lang = sub_info.subtitles[0].language or "eng"
-                else:
-                    sub_lang = "eng"
-            except Exception:
-                sub_lang = "eng"
-
-            ffmpeg.convert_to_mp4(
-                media_file=media,
-                output_file=temp_media,
-                audio_lang="eng",
-                subtitle_file=subtitle_file,
-                subtitle_lang=sub_lang,
-            )
-            media = temp_media
-        except Exception as e:
-            if temp_media and temp_media.exists():
-                temp_media.unlink()
-            raise Exit(f"Failed to embed subtitle file: {e}", code=1) from e
-
     # Parse stream indices if provided
     audio_indices: list[int] | None = None
-    subtitle_indices: list[int] | None = None
     audio_langs: list[str] | None = None
     subtitle_langs: list[str] | None = None
 
@@ -741,17 +712,18 @@ def media_repack_command(
         raise Exit(
             "Cannot specify both --audio-file and --audio-streams/--audio-lang", code=1
         )
-    if subtitle_streams and subtitle_lang:
-        raise Exit("Cannot specify both --subtitle-streams and --subtitle-lang", code=1)
+    if subtitle_file and media.is_dir():
+        raise Exit(
+            "--subtitle-file cannot be used with a directory. Pass a single file instead.",
+            code=1,
+        )
 
     if audio_streams:
         audio_indices = [int(x.strip()) for x in audio_streams.split(",")]
     elif audio_lang:
         audio_langs = [x.strip() for x in audio_lang.split(",")]
 
-    if subtitle_streams:
-        subtitle_indices = [int(x.strip()) for x in subtitle_streams.split(",")]
-    elif subtitle_lang:
+    if subtitle_lang:
         subtitle_langs = [x.strip() for x in subtitle_lang.split(",")]
 
     # Build extra_args list
@@ -771,6 +743,19 @@ def media_repack_command(
             )
         if extra_args:
             extra_args_list.extend(shlex.split(extra_args))
+
+    # Resolve audio language for metadata
+    audio_lang_meta: str | None = None
+    if audio_langs:
+        audio_lang_meta = audio_langs[0]
+    elif audio_file:
+        try:
+            ffmpeg = Ffmpeg()
+            af_info = ffmpeg.get_media_info(audio_file)
+            if af_info.audios and af_info.audios[0].language:
+                audio_lang_meta = af_info.audios[0].language
+        except Exception:
+            pass
 
     # Handle directory input
     if media.is_dir():
@@ -801,11 +786,12 @@ def media_repack_command(
                     video_file,
                     audio_file,
                     audio_indices,
-                    subtitle_indices,
                     audio_langs,
                     subtitle_langs,
+                    subtitle_file,
                     extra_args_list,
                     file_output,
+                    audio_lang_meta,
                 )
                 results.append(result.to_dict())
                 if result.error:
@@ -829,11 +815,12 @@ def media_repack_command(
                     video_file,
                     audio_file,
                     audio_indices,
-                    subtitle_indices,
                     audio_langs,
                     subtitle_langs,
+                    subtitle_file,
                     extra_args_list,
                     file_output,
+                    audio_lang_meta,
                 )
                 if result.error:
                     table.add_row(
@@ -863,11 +850,12 @@ def media_repack_command(
             media,
             audio_file,
             audio_indices,
-            subtitle_indices,
             audio_langs,
             subtitle_langs,
+            subtitle_file,
             extra_args_list,
             output,
+            audio_lang_meta,
         )
 
         if config.JSON_OUTPUT:
@@ -880,21 +868,22 @@ def media_repack_command(
             if result.skipped:
                 echo.info(f"Skipped: {result.note}")
             else:
-                echo.info(f"Completed: {result.input_size} -> {result.output_size}")
-
-    if temp_media and temp_media.exists():
-        temp_media.unlink()
+                echo.info(
+                    f"Completed: {utils.format_size(result.input_size or 0)} -> "
+                    f"{utils.format_size(result.output_size or 0)}"
+                )
 
 
 def _repack_single_file(
     media: Path,
     audio_file: Path | None,
     audio_indices: list[int] | None,
-    subtitle_indices: list[int] | None,
     audio_langs: list[str] | None,
     subtitle_langs: list[str] | None,
+    subtitle_file: Path | None,
     extra_args_list: list[str] | None,
     output: Path | None,
+    audio_lang_metadata: str | None = None,
 ) -> "MediaResult":
     """Helper to repack a single file."""
     if output is None:
@@ -929,12 +918,35 @@ def _repack_single_file(
             output_file=output,
             audio_file=audio_file,
             audio_indices=audio_indices,
-            subtitle_indices=subtitle_indices,
             audio_langs=audio_langs,
-            subtitle_langs=subtitle_langs,
             extra_args=extra_args_list,
+            audio_lang_metadata=audio_lang_metadata,
         )
         output_size = output.stat().st_size
+
+        # Extract subtitles as external SRT
+        srt_note = ""
+        if subtitle_file:
+            srt_output = output.with_suffix(".srt")
+            sub_ext = subtitle_file.suffix.lower()
+            if sub_ext == ".srt":
+                utils.move_file(subtitle_file, srt_output, overwrite=config.OVERWRITE_DEFAULT)
+            else:
+                ffmpeg.convert_subtitle(
+                    subtitle_file,
+                    output_file=srt_output,
+                    subtitle_lang=subtitle_langs[0] if subtitle_langs else None,
+                )
+            srt_note = f" + {srt_output.name}"
+        elif subtitle_langs:
+            srt_output = output.with_suffix(".srt")
+            extracted = ffmpeg.extract_subs_to_file(
+                input_file=media,
+                output_srt=srt_output,
+                subtitle_langs=subtitle_langs,
+            )
+            if extracted:
+                srt_note = f" + {srt_output.name}"
 
         return MediaResult(
             command="media repack",
@@ -942,6 +954,7 @@ def _repack_single_file(
             output=str(output),
             input_size=input_size,
             output_size=output_size,
+            note=srt_note,
         )
     except Exception as e:
         return MediaResult(

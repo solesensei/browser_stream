@@ -49,6 +49,7 @@ AUDIO_EXTENSIONS = {
     "mka",
 }
 SUBTITLE_EXTENSIONS = {"srt", "ssa", "ass", "vtt"}
+MP4_COMPATIBLE_AUDIO_CODECS = {"aac", "mp3", "ac3", "eac3", "alac", "opus"}
 FS_MAX_DIRS = int(os.getenv("FS_MAX_DIRS", "10"))
 
 # Constants
