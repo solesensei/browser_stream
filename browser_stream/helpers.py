@@ -698,8 +698,8 @@ class Ffmpeg:
         else:
             args.extend(["-c:a", "copy"])
 
-        # Exclude subtitle/data streams — subs are extracted externally
-        args.extend(["-sn", "-dn"])
+        # Exclude subtitle/data/chapter streams — subs are extracted externally
+        args.extend(["-sn", "-dn", "-map_chapters", "-1"])
 
         if extra_args:
             args.extend(extra_args)
