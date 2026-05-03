@@ -749,13 +749,20 @@ def media_repack_command(
     if audio_langs:
         audio_lang_meta = audio_langs[0]
     elif audio_file:
+        ffmpeg = Ffmpeg()
         try:
-            ffmpeg = Ffmpeg()
             af_info = ffmpeg.get_media_info(audio_file)
             if af_info.audios and af_info.audios[0].language:
                 audio_lang_meta = af_info.audios[0].language
         except Exception:
             pass
+        if not audio_lang_meta and not media.is_dir():
+            try:
+                src_info = ffmpeg.get_media_info(media)
+                if src_info.audios and src_info.audios[0].language:
+                    audio_lang_meta = src_info.audios[0].language
+            except Exception:
+                pass
 
     # Handle directory input
     if media.is_dir():
