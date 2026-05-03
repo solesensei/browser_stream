@@ -742,14 +742,9 @@ class Ffmpeg:
                 ["-metadata:s:a:0", f"language={audio_lang_metadata.lower()[:3]}"]
             )
 
-        args.extend(
-            [
-                "-movflags",
-                "+faststart",
-                "-y",
-                output_file,
-            ]
-        )
+        if config.FFMPEG_REPACK_EXTRA_FLAGS:
+            args.extend(config.FFMPEG_REPACK_EXTRA_FLAGS)
+        args.extend(["-y", output_file])
         cls._run(*args, live_output=True)
         return output_file
 
