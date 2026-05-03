@@ -53,7 +53,7 @@ MP4_COMPATIBLE_AUDIO_CODECS = {"aac", "mp3", "ac3", "eac3", "alac", "opus"}
 MP4_COMPATIBLE_VIDEO_CODECS = {"h264", "hevc", "h265", "mpeg4", "av1", "vp9"}
 BROWSER_VIDEO_CODEC = os.getenv("BROWSER_VIDEO_CODEC", "libx264").lower()
 FFMPEG_REPACK_EXTRA_FLAGS: list[str] = [
-    f for f in os.getenv("FFMPEG_REPACK_EXTRA_FLAGS", "").split() if f
+    f for f in os.getenv("FFMPEG_REPACK_EXTRA_FLAGS", "-movflags +faststart").split() if f
 ]
 FS_MAX_DIRS = int(os.getenv("FS_MAX_DIRS", "10"))
 
