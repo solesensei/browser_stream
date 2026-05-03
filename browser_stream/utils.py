@@ -281,10 +281,14 @@ def run_process(
     )
     stdout_live = ""
     if live_output:
-        for line in iter(process.stdout.readline, ""):  # type: ignore
-            line = line.strip()
-            echo.print(line)
-            stdout_live += line + "\n"
+        # ffmpeg writes progress with \r (not \n), so readline() blocks until
+        # the pipe buffer fills. Read in chunks to keep the pipe drained.
+        while chunk := process.stdout.read(4096):  # type: ignore
+            for line in chunk.replace("\r", "\n").splitlines():
+                line = line.strip()
+                if line:
+                    echo.print(line)
+                    stdout_live += line + "\n"
     try:
         stdout = process.communicate(
             input=input_ if input_ else None,
