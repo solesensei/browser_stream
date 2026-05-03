@@ -939,7 +939,8 @@ def _repack_single_file(
             command="media repack",
             input=str(media),
             output=str(output),
-            error=f"Output file already exists: {output}. Use --overwrite to replace it.",
+            skipped=True,
+            note="Output already exists (use --overwrite to replace)",
         )
 
     output.parent.mkdir(parents=True, exist_ok=True)
