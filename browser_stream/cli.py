@@ -60,6 +60,33 @@ app.add_typer(setup_app)
 app.add_typer(media_app)
 
 
+@media_app.callback()
+def media_callback(
+    json: bool = typer.Option(
+        False, "--json", help="JSON output mode (implies NON_INTERACTIVE)"
+    ),
+    log_level: str | None = typer.Option(
+        None,
+        "--log-level",
+        help="Log level (debug|info|warn|error)",
+    ),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Overwrite existing files",
+    ),
+):
+    """Media helpers"""
+    if json:
+        config.JSON_OUTPUT = True
+        config.NON_INTERACTIVE = True
+    if log_level is not None:
+        config.LOG_LEVEL = log_level
+        setup_logger(log_level=log_level)
+    if overwrite:
+        config.OVERWRITE_DEFAULT = overwrite
+
+
 class MediaStreamType(str, Enum):
     """Media stream types for filtering."""
 
