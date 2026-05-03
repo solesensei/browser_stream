@@ -633,6 +633,14 @@ class Ffmpeg:
         return output_file
 
     @classmethod
+    def _needs_video_transcode(
+        cls,
+        input_file: Path,
+    ) -> bool:
+        info = cls.get_media_info(input_file)
+        return info.video.codec not in config.MP4_COMPATIBLE_VIDEO_CODECS
+
+    @classmethod
     def _needs_audio_transcode(
         cls,
         input_file: Path,
@@ -711,6 +719,20 @@ class Ffmpeg:
 
         if extra_args:
             args.extend(extra_args)
+        elif cls._needs_video_transcode(input_file):
+            echo.info(
+                f"Video codec incompatible with MP4, transcoding to {config.BROWSER_VIDEO_CODEC}"
+            )
+            args.extend(
+                [
+                    "-c:v",
+                    config.BROWSER_VIDEO_CODEC,
+                    "-crf",
+                    config.FFPEG_ENCODE_CRF,
+                    "-preset",
+                    config.FFPEG_ENCODE_PRESET,
+                ]
+            )
         else:
             args.extend(["-c:v", "copy"])
 
