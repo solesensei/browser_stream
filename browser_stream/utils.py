@@ -274,7 +274,7 @@ def run_process(
         echo.debug(f"Running command: {command_str}")
     process = subprocess.Popen(
         command,
-        stdin=subprocess.PIPE if input_ else None,
+        stdin=subprocess.PIPE if input_ else subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
