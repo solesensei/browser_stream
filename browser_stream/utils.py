@@ -208,7 +208,7 @@ def move_file(src: Path, dst: Path, overwrite: bool = False) -> None:
         raise ValueError("Source is not a file")
     if dst.is_dir():
         dst = dst / src.name
-    if src == dst:
+    if src.resolve() == dst.resolve():
         return
     if dst.exists():
         if overwrite:

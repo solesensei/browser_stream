@@ -696,11 +696,16 @@ class Ffmpeg:
             media_info = cls.get_media_info(input_file)
             available_audio_langs = {s.language for s in media_info.audios if s.language}
 
+            mapped_audio_langs = []
             for lang in audio_langs or []:
                 if lang in available_audio_langs:
                     args.extend(["-map", f"0:a:m:language:{lang}"])
+                    mapped_audio_langs.append(lang)
                 else:
                     echo.warning(f"Audio language '{lang}' not found, skipping")
+            if audio_langs and not mapped_audio_langs:
+                echo.warning("No matching audio language found, mapping all audio streams")
+                args.extend(["-map", "0:a?"])
 
         # Auto-detect audio codec compatibility with MP4
         transcode_audio = cls._needs_audio_transcode(input_file, audio_file)
