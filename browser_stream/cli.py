@@ -348,7 +348,12 @@ def media_extract_audio_command(
         audio_stream = resolve_stream(info, "audio", stream=stream, lang=lang)
     except PromptNeeded:
         raise
-    except Exit:
+    except Exit as e:
+        if config.JSON_OUTPUT:
+            result = MediaResult(
+                command="media extract-audio", input=str(media_file), error=e.message
+            )
+            echo.print_json(result.to_dict())
         raise
 
     if output is None:
@@ -421,7 +426,12 @@ def media_extract_subs_command(
         sub_stream = resolve_stream(info, "subtitle", stream=stream, lang=lang)
     except PromptNeeded:
         raise
-    except Exit:
+    except Exit as e:
+        if config.JSON_OUTPUT:
+            result = MediaResult(
+                command="media extract-subs", input=str(media_file), error=e.message
+            )
+            echo.print_json(result.to_dict())
         raise
 
     if output is None:
@@ -746,7 +756,13 @@ def media_repack_command(
         )
 
     if audio_streams:
-        audio_indices = [int(x.strip()) for x in audio_streams.split(",")]
+        try:
+            audio_indices = [int(x.strip()) for x in audio_streams.split(",")]
+        except ValueError as e:
+            raise Exit(
+                f"Invalid --audio-streams value: {audio_streams!r}. Expected comma-separated integers (e.g. 1,2)",
+                code=1,
+            ) from e
     elif audio_lang:
         audio_langs = [x.strip() for x in audio_lang.split(",")]
 
@@ -1214,8 +1230,13 @@ def run():
             raise
         sys.exit(e.code)
     except Exception as e:
+        if config.JSON_OUTPUT:
+            echo.print_json({"error": f"{e.__class__.__name__}: {e}", "code": 2})
+        else:
+            echo.printc(f"{e.__class__.__name__}: {e}", color="red", bold=True)
+            echo.printc(
+                "Set RAISE_EXCEPTIONS=true environment variable to raise exceptions"
+            )
         if config.RAISE_EXCEPTIONS:
             raise
-        echo.printc(f"{e.__class__.__name__}: {e}", color="red", bold=True)
-        echo.printc("Set RAISE_EXCEPTIONS=true environment variable to raise exceptions")
         sys.exit(2)

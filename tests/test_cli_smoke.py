@@ -182,6 +182,8 @@ class TestMediaExtractAudio:
             assert result.exit_code == 0
             output = json.loads(result.stdout)
             assert output["command"] == "media extract-audio"
+            call_kwargs = mock_instance.extract_audio_with_convert.call_args
+            assert call_kwargs.kwargs["stream_index"] == 1
 
             if output_file.exists():
                 output_file.unlink()
@@ -223,8 +225,8 @@ class TestMediaRepack:
             if output_file.exists():
                 output_file.unlink()
 
-    def test_repack_existing_output_errors(self, runner, temp_video_file):
-        """Test `media repack` with existing output errors with --overwrite hint."""
+    def test_repack_existing_output_skips(self, runner, temp_video_file):
+        """Test `media repack` skips when output already exists."""
         output_file = temp_video_file.with_suffix(".mp4")
         # Create the output file
         output_file.write_text("existing content")
@@ -241,10 +243,10 @@ class TestMediaRepack:
             ],
         )
 
-        assert result.exit_code != 0
+        assert result.exit_code == 0
         output = json.loads(result.stdout)
-        assert output["error"] is not None
-        assert "--overwrite" in output["error"]
+        assert output["skipped"] is True
+        assert "--overwrite" in output["note"]
         assert output["command"] == "media repack"
 
         # Clean up
@@ -373,3 +375,6 @@ class TestExitCodes:
             )
 
             assert result.exit_code != 0
+            output = json.loads(result.stdout)
+            assert output["error"]
+            assert output["command"] == "media extract-audio"
