@@ -704,7 +704,9 @@ class Ffmpeg:
                 else:
                     echo.warning(f"Audio language '{lang}' not found, skipping")
             if audio_langs and not mapped_audio_langs:
-                echo.warning("No matching audio language found, mapping all audio streams")
+                echo.warning(
+                    "No matching audio language found, mapping all audio streams"
+                )
                 args.extend(["-map", "0:a?"])
 
         # Auto-detect audio codec compatibility with MP4
