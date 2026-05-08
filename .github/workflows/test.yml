@@ -17,14 +17,20 @@ jobs:
       uses: astral-sh/setup-uv@v4
       with:
         enable-cache: true
-    
+
+    - name: 📦 Install dependencies
+      run: uv sync --dev
+
     - name: 🔎 Lint with ruff
       run: |
         uvx ruff check . --output-format=github
-    
+
     - name: 📐 Check formatting with ruff
       run: |
         uvx ruff format --check .
+
+    - name: 🔬 Type check with pyright
+      run: uvx pyright browser_stream/ tests/
 
   test:
     name: 🧪 Unit Tests (Python ${{ matrix.python-version }})

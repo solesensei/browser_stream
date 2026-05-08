@@ -1,6 +1,6 @@
 import os
 
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 
 
 def _env_flag(name: str, default: bool = False) -> bool:
@@ -18,6 +18,11 @@ RAISE_EXCEPTIONS = _env_flag("RAISE_EXCEPTIONS")
 JSON_OUTPUT = _env_flag("JSON_OUTPUT")
 PROMPT_COMMANDS = _env_flag("PROMPT_COMMANDS")
 PRINT_CMD = _env_flag("PRINT_CMD")
+
+# Runtime flags (set by CLI callback, can be overridden by env vars)
+NON_INTERACTIVE = _env_flag("NON_INTERACTIVE")
+OVERWRITE_DEFAULT = _env_flag("OVERWRITE_DEFAULT")
+LOG_LEVEL: str | None = os.getenv("LOG_LEVEL")
 BROWSER_AUDIO_CODEC = os.getenv("BROWSER_AUDIO_CODEC", "aac").lower()
 BROWSER_AUDIO_BITRATE = os.getenv("BROWSER_AUDIO_BITRATE", "192k")
 FFPEG_ENCODE_CRF = os.getenv("FFPEG_ENCODE_CRF", "20")
@@ -44,6 +49,12 @@ AUDIO_EXTENSIONS = {
     "mka",
 }
 SUBTITLE_EXTENSIONS = {"srt", "ssa", "ass", "vtt"}
+MP4_COMPATIBLE_AUDIO_CODECS = {"aac", "mp3", "ac3", "eac3", "alac", "opus"}
+MP4_COMPATIBLE_VIDEO_CODECS = {"h264", "hevc", "h265", "mpeg4", "av1", "vp9"}
+BROWSER_VIDEO_CODEC = os.getenv("BROWSER_VIDEO_CODEC", "libx264").lower()
+FFMPEG_REPACK_EXTRA_FLAGS: list[str] = [
+    f for f in os.getenv("FFMPEG_REPACK_EXTRA_FLAGS", "-movflags +faststart").split() if f
+]
 FS_MAX_DIRS = int(os.getenv("FS_MAX_DIRS", "10"))
 
 # Constants

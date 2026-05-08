@@ -61,8 +61,104 @@ class StreamMedia:
     subtitle_lang: str | None = None
 
 
+@dataclasses.dataclass
+class MediaResult:
+    """Result of a media operation"""
+
+    command: str  # e.g. "media repack", "stream"
+    input: str  # input file path
+    output: str | None = None  # output file path
+    input_size: int | None = None  # in bytes
+    output_size: int | None = None  # in bytes
+    duration_s: float | None = None  # duration in seconds
+    skipped: bool = False  # true if output already existed
+    note: str = ""
+    error: str | None = None  # error message if failed
+
+    def to_dict(self) -> dict:
+        return dataclasses.asdict(self)
+
+
 # Global batch processing settings cache
 _batch_settings_cache: BatchProcessingSettings | None = None
+
+
+def resolve_stream(
+    info: FfmpegMediaInfo,
+    kind: tp.Literal["audio", "subtitle"],
+    stream: int | None = None,
+    lang: str | None = None,
+) -> FfmpegStream:
+    """Resolve audio or subtitle stream by absolute index or language.
+
+    Args:
+        info: Media info from ffmpeg probe.
+        kind: Stream type to resolve ('audio' or 'subtitle').
+        stream: Absolute ffmpeg stream index (0-based).
+        lang: Language code (e.g. 'jpn', 'eng'). Matched against stream.language.
+
+    Returns:
+        The matching FfmpegStream.
+
+    Raises:
+        utils.PromptNeeded: When ambiguous (multiple matches or no explicit arg in non-interactive mode).
+        Exit: When no match found.
+    """
+    streams = info.audios if kind == "audio" else info.subtitles
+
+    if not streams:
+        raise Exit(f"No {kind} streams found", code=1)
+
+    # Auto-select if there's only one stream
+    if len(streams) == 1 and stream is None and lang is None:
+        return streams[0]
+
+    # If stream index is specified, match by absolute ffmpeg index
+    if stream is not None:
+        match = next((s for s in streams if s.index == stream), None)
+        if match is not None:
+            return match
+        available = [s.index for s in streams]
+        raise Exit(
+            f"Stream {stream} not found for {kind}. Available indices: {available}",
+            code=1,
+        )
+
+    # If language is specified, filter by language
+    if lang is not None:
+        lang = lang.lower()
+        matches = [s for s in streams if s.language and s.language.lower() == lang]
+        if len(matches) == 1:
+            return matches[0]
+        elif len(matches) > 1:
+            hint = f"Use --stream N to select a specific {kind} (e.g., --stream {matches[0].index})"
+            raise utils.PromptNeeded(
+                f"Multiple {kind} streams with language '{lang}'",
+                hint=hint,
+                code=2,
+            )
+        else:
+            raise Exit(f"No {kind} stream found with language '{lang}'", code=1)
+
+    # No explicit selection — in non-interactive mode, this is an error
+    if config.NON_INTERACTIVE:
+        options = ", ".join(f"--stream {s.index}" for s in streams)
+        hint = f"Specify --stream N or --lang CODE. Options: {options}"
+        raise utils.PromptNeeded(
+            f"Select {kind} stream",
+            hint=hint,
+            code=2,
+        )
+
+    # Interactive mode: present a table and prompt
+    hint = "Use --stream N or --lang CODE to avoid this prompt"
+    idx, selected = utils.select_options_interactive(
+        streams,
+        option_name=kind,
+        message=f"Select {kind} stream:",
+        hint=hint,
+    )
+    return selected
 
 
 def build_stream_url_nginx(
@@ -73,6 +169,9 @@ def build_stream_url_nginx(
     exit_if(not conf.nginx_domain_name, "Nginx domain name not found")
     exit_if(not conf.nginx_port, "Nginx port not found")
     exit_if(not conf.media_dir, "Media directory not found")
+    assert conf.media_dir is not None
+    assert conf.nginx_domain_name is not None
+    assert conf.nginx_secret is not None
     relative_path = media_file.relative_to(conf.media_dir)
     return utils.url_encode(
         f"https://{conf.nginx_domain_name}:{conf.nginx_port}/{conf.media_dir.as_posix().lstrip('/')}/{relative_path.as_posix()}?x-token={conf.nginx_secret}"
@@ -86,6 +185,8 @@ def build_stream_url_plex(
     exit_if(not conf.plex_x_token, "Plex X-Token not found")
     exit_if(not conf.host_url, "Host URL not found")
     exit_if(not conf.plex_server_id, "Plex server ID not found")
+    assert conf.plex_x_token is not None
+    assert conf.host_url is not None
     plex = PlexAPI(conf.plex_x_token, conf.host_url, server_id=conf.plex_server_id)
     return utils.url_encode(plex.get_stream_url(media_file))
 
@@ -937,7 +1038,7 @@ def confirm_repack(
         )
 
     # Remaining groups — streams differ for the selected languages
-    for _sig, group_files in sig_groups.items():
+    for _, group_files in sig_groups.items():
         echo.print("")
         echo.info(f"Different streams in {len(group_files)} file(s):")
         for f, _ in group_files[:5]:
@@ -1084,10 +1185,16 @@ def repack_media_files(
                 input_file=input_file,
                 output_file=output_file,
                 audio_langs=audio_langs,
-                subtitle_langs=subtitle_langs,
                 audio_indices=audio_idx,
-                subtitle_indices=sub_idx,
             )
+            if sub_idx or subtitle_langs:
+                srt_output = output_file.with_suffix(".srt")
+                ffmpeg.extract_subs_to_file(
+                    input_file=input_file,
+                    output_srt=srt_output,
+                    subtitle_indices=sub_idx or None,
+                    subtitle_langs=subtitle_langs or None,
+                )
             output_size = output_file.stat().st_size
             results.append(
                 RepackResult(

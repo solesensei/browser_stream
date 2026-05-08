@@ -377,7 +377,7 @@ class FfmpegMediaInfo:
                     last_stream_info.title = last_stream_info.title or default_title
                     streams.append(last_stream_info)
                 match = re.search(
-                    r"Stream #\d+:(\d+)(?:\((\w+)\))?: (\w+): (\w+)(.*)",
+                    r"Stream #\d+:(\d+)(?:\[0x[0-9a-f]+\])?(?:\((\w+)\))?\s*:\s*(\w+)\s*:\s*(\w+)(.*)",
                     line,
                 )
                 if match:
@@ -387,11 +387,13 @@ class FfmpegMediaInfo:
                         type=type_.lower(),  # type: ignore
                         codec=codec.lower().strip(),
                         language=lang or default_lang,
-                        encoding_info=encoding_info.split(",", 1)[-1].strip(),
+                        encoding_info=encoding_info.split(",", 1)[-1].strip()
+                        if encoding_info
+                        else "",
                     )
                 else:
-                    echo.warning(
-                        f"{filename} | Cannot parse stream info from line: {line}"
+                    echo.debug(
+                        f"{filename} | Could not parse stream info from line: {line}"
                     )
             if line.startswith("title") and last_stream_info:
                 match = re.search(r"title\s+:\s+(.+)", line)
@@ -501,14 +503,16 @@ class Ffmpeg:
                 f"Subtitle language mismatch: {subtitle.language} != {subtitle_lang}"
             )
         subtitle_lang = (
-            subtitle.language or subtitle_lang or utils.prompt_subtitles(subtitle)
+            subtitle_lang or subtitle.language or utils.prompt_subtitles(subtitle)
         ).lower()[:3]
         echo.info(
             f"Extracting subtitle: {subtitle.title} [{subtitle_lang}] from {media_file}"
         )
         subtitle_file = media_file.with_suffix(f".{subtitle_lang[:2]}.{subtitle.codec}")
         if subtitle_file.exists():
-            if utils.confirm(
+            if config.OVERWRITE_DEFAULT:
+                subtitle_file.unlink()
+            elif utils.confirm(
                 f"Subtitle file already exists: {subtitle_file.name}. Do you want to overwrite it?"
             ):
                 subtitle_file.unlink()
@@ -606,8 +610,11 @@ class Ffmpeg:
             )
         if audio_file:
             args.extend(["-map", f"{index_audio}:a:0", "-c:a", "copy"])
-        elif audio_stream:
+        elif audio_stream is not None:
             args.extend(["-map", f"0:{audio_stream}", "-c:a", "copy"])
+        else:
+            # Copy all audio streams from input when no specific audio is selected
+            args.extend(["-map", "0:a?", "-c:a", "copy"])
         if audio_lang:
             args.extend(["-metadata:s:a:0", f"language={audio_lang.lower()[:3]}"])
         if subtitle_file and not burn_subtitles:
@@ -626,92 +633,231 @@ class Ffmpeg:
         return output_file
 
     @classmethod
+    def _needs_video_transcode(
+        cls,
+        input_file: Path,
+    ) -> bool:
+        info = cls.get_media_info(input_file)
+        return info.video.codec not in config.MP4_COMPATIBLE_VIDEO_CODECS
+
+    @classmethod
+    def _needs_audio_transcode(
+        cls,
+        input_file: Path,
+        audio_file: Path | None = None,
+    ) -> bool:
+        if audio_file is not None:
+            info = cls.get_media_info(audio_file)
+            codecs = {s.codec for s in info.audios}
+        else:
+            info = cls.get_media_info(input_file)
+            codecs = {s.codec for s in info.audios}
+        return bool(codecs - config.MP4_COMPATIBLE_AUDIO_CODECS)
+
+    @classmethod
     def repack_to_mp4(
         cls,
         input_file: Path,
         output_file: Path,
+        audio_file: Path | None = None,
         audio_langs: list[str] | None = None,
         subtitle_langs: list[str] | None = None,
         audio_indices: list[int] | None = None,
         subtitle_indices: list[int] | None = None,
+        extra_args: list[str] | None = None,
+        audio_lang_metadata: str | None = None,
     ) -> Path:
         """Repack media file to MP4.
 
-        Two modes:
-        - **Language mode** (``audio_langs``/``subtitle_langs``): maps every
-          stream of the given languages.  Used by the ``--yes`` path.
-        - **Index mode** (``audio_indices``/``subtitle_indices``): maps
-          specific streams by ffmpeg index.  Used after interactive selection.
+        Three audio modes (mutually exclusive):
+        - **External file** (``audio_file``): muxes audio from a separate file.
+        - **Index mode** (``audio_indices``): maps specific streams by ffmpeg index.
+        - **Language mode** (``audio_langs``): maps every stream of the given languages.
         """
         echo.info(f"Repacking: {input_file.name} -> {output_file.name}")
 
-        args: list[str | Path] = ["-i", input_file, "-map", "0:v:0"]
-        has_subs = False
+        args: list[str | Path] = ["-i", input_file]
 
-        if audio_indices is not None or subtitle_indices is not None:
-            # --- index-based mapping ---
+        # Add external audio as second input
+        audio_input_idx = 1  # index of external audio input in ffmpeg
+        if audio_file is not None:
+            args.extend(["-i", audio_file])
+
+        args.extend(["-map", "0:v:0"])
+
+        if audio_file is not None:
+            args.extend(["-map", f"{audio_input_idx}:a:0"])
+        elif audio_indices is not None or subtitle_indices is not None:
             for idx in audio_indices or []:
                 args.extend(["-map", f"0:{idx}"])
             for idx in subtitle_indices or []:
                 args.extend(["-map", f"0:{idx}"])
-                has_subs = True
         else:
-            # --- language-based mapping (--yes path) ---
             media_info = cls.get_media_info(input_file)
             available_audio_langs = {s.language for s in media_info.audios if s.language}
-            available_sub_langs = {s.language for s in media_info.subtitles if s.language}
 
+            mapped_audio_langs = []
             for lang in audio_langs or []:
                 if lang in available_audio_langs:
                     args.extend(["-map", f"0:a:m:language:{lang}"])
+                    mapped_audio_langs.append(lang)
                 else:
                     echo.warning(f"Audio language '{lang}' not found, skipping")
+            if audio_langs and not mapped_audio_langs:
+                echo.warning(
+                    "No matching audio language found, mapping all audio streams"
+                )
+                args.extend(["-map", "0:a?"])
 
-            for lang in subtitle_langs or []:
-                if lang in available_sub_langs:
-                    args.extend(["-map", f"0:s:m:language:{lang}"])
-                    has_subs = True
-                else:
-                    echo.warning(f"Subtitle language '{lang}' not found, skipping")
+        # Auto-detect audio codec compatibility with MP4
+        transcode_audio = cls._needs_audio_transcode(input_file, audio_file)
+        if transcode_audio:
+            echo.info(
+                f"Audio codec incompatible with MP4, transcoding to {config.BROWSER_AUDIO_CODEC}"
+            )
+            args.extend(
+                ["-c:a", config.BROWSER_AUDIO_CODEC, "-b:a", config.BROWSER_AUDIO_BITRATE]
+            )
+        else:
+            args.extend(["-c:a", "copy"])
 
-        args.extend(
-            [
-                "-c:v",
-                "copy",
-                "-c:a",
-                "copy",
-            ]
-        )
-        if has_subs:
-            args.extend(["-c:s", "mov_text"])
-        args.extend(
-            [
-                "-movflags",
-                "+faststart",
-                "-y",
-                output_file,
-            ]
-        )
+        # Exclude subtitle/data/chapter streams — subs are extracted externally
+        args.extend(["-sn", "-dn", "-map_chapters", "-1"])
+
+        if extra_args:
+            args.extend(extra_args)
+        elif cls._needs_video_transcode(input_file):
+            echo.info(
+                f"Video codec incompatible with MP4, transcoding to {config.BROWSER_VIDEO_CODEC}"
+            )
+            args.extend(
+                [
+                    "-c:v",
+                    config.BROWSER_VIDEO_CODEC,
+                    "-crf",
+                    config.FFPEG_ENCODE_CRF,
+                    "-preset",
+                    config.FFPEG_ENCODE_PRESET,
+                ]
+            )
+        else:
+            args.extend(["-c:v", "copy"])
+
+        # Set audio language metadata
+        if audio_lang_metadata:
+            args.extend(
+                ["-metadata:s:a:0", f"language={audio_lang_metadata.lower()[:3]}"]
+            )
+
+        if config.FFMPEG_REPACK_EXTRA_FLAGS:
+            args.extend(config.FFMPEG_REPACK_EXTRA_FLAGS)
+        args.extend(["-y", output_file])
         cls._run(*args, live_output=True)
         return output_file
+
+    def extract_subs_to_file(
+        self,
+        input_file: Path,
+        output_srt: Path,
+        subtitle_lang: str | None = None,
+        subtitle_indices: list[int] | None = None,
+        subtitle_langs: list[str] | None = None,
+    ) -> Path | None:
+        """Extract subtitles from media file as external SRT."""
+        media_info = self.get_media_info(input_file)
+        if not media_info.subtitles:
+            return None
+
+        sub_stream = None
+        if subtitle_indices:
+            sub_stream = next(
+                (s for s in media_info.subtitles if s.index == subtitle_indices[0]), None
+            )
+        elif subtitle_langs:
+            for lang in subtitle_langs:
+                sub_stream = next(
+                    (
+                        s
+                        for s in media_info.subtitles
+                        if s.language and s.language == lang
+                    ),
+                    None,
+                )
+                if sub_stream:
+                    break
+        elif subtitle_lang:
+            sub_stream = next(
+                (
+                    s
+                    for s in media_info.subtitles
+                    if s.language and s.language == subtitle_lang
+                ),
+                None,
+            )
+
+        if sub_stream is None:
+            return None
+
+        lang = subtitle_lang or sub_stream.language or "und"
+        echo.info(f"Extracting subtitle [{lang}] -> {output_srt.name}")
+        self._run(
+            "-i",
+            input_file,
+            "-map",
+            f"0:{sub_stream.index}",
+            "-c:s",
+            "srt",
+            "-metadata:s:s:0",
+            f"language={lang.lower()[:3]}",
+            "-y",
+            output_srt,
+            live_output=True,
+        )
+        return output_srt
 
     def convert_subtitle_to_vtt(
         self, subtitle_file: Path, subtitle_lang: str | None
     ) -> Path:
-        echo.info(f"Converting subtitle file: {subtitle_file} to VTT format")
-        output_file = subtitle_file.with_suffix(".vtt")
+        return self.convert_subtitle(
+            subtitle_file,
+            output_file=subtitle_file.with_suffix(".vtt"),
+            subtitle_lang=subtitle_lang,
+        )
+
+    SUBTITLE_CODEC_MAP: tp.ClassVar[dict[str, str]] = {
+        ".vtt": "webvtt",
+        ".srt": "srt",
+        ".ass": "ass",
+        ".ssa": "ssa",
+    }
+
+    def convert_subtitle(
+        self,
+        subtitle_file: Path,
+        output_file: Path,
+        subtitle_lang: str | None = None,
+    ) -> Path:
         self._assert_input_output_equal(subtitle_file, output_file)
+        codec = self.SUBTITLE_CODEC_MAP.get(output_file.suffix.lower())
+        if codec is None:
+            raise Exit(
+                f"Unsupported subtitle format: {output_file.suffix}. "
+                f"Supported: {', '.join(self.SUBTITLE_CODEC_MAP)}"
+            )
         media_info = self.get_media_info(subtitle_file)
         subtitle_lang = (
             subtitle_lang
-            or media_info.subtitles[0].language
-            or utils.prompt_subtitles(media_info.subtitles[0])
+            or (media_info.subtitles[0].language if media_info.subtitles else None)
+            or "eng"
         ).lower()[:3]
+        echo.info(
+            f"Converting {subtitle_file.name} -> {output_file.suffix} [{subtitle_lang}]"
+        )
         self._run(
             "-i",
             subtitle_file,
             "-c:s",
-            "webvtt",
+            codec,
             "-metadata:s:s:0",
             f"language={subtitle_lang}",
             "-y",
@@ -748,7 +894,9 @@ class Ffmpeg:
         )
         audio_file = output_file
         if audio_file.exists():
-            if utils.confirm(
+            if config.OVERWRITE_DEFAULT:
+                audio_file.unlink()
+            elif utils.confirm(
                 f"Audio file already exists: {audio_file.name}. Do you want to overwrite it?"
             ):
                 audio_file.unlink()

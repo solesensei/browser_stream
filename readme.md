@@ -1,6 +1,6 @@
 # Browser Media Streamer
 
-![version](https://img.shields.io/badge/version-v0.3.1-blue.svg)
+![version](https://img.shields.io/badge/version-v0.4.0-blue.svg)
 
 A command-line tool for streaming local media files directly in web browsers. It prepares media files and configures Nginx or Plex for HTTP streaming, generating secure direct URLs that work seamlessly with online watch party platforms like [Metastream](https://app.getmetastream.com).
 
@@ -133,38 +133,42 @@ graph TB
 > [!NOTE]
 > This tool can work with Nginx or Plex. You can set up one of them or both on different ports.
 
+### Media Commands
+
+#### Media Operations (preprocessing only)
+
+| Command | Purpose |
+|---------|---------|
+| `media info FILE [--only audio\|subtitle\|video]` | Inspect streams, codecs, language metadata |
+| `media extract-audio FILE (--stream N \| --lang CODE) [--codec aac] [--bitrate 192k]` | Extract audio to AAC/MP3 file |
+| `media extract-subs FILE (--stream N \| --lang CODE) [--format vtt\|srt]` | Extract subtitle stream to file |
+| `media convert-subs FILE [--to vtt]` | Convert subtitle encoding to UTF-8 and format |
+| `media embed-subs VIDEO --subtitles SUBS [--lang eng] [--burn]` | Embed or burn subtitles into video |
+| `media repack MEDIA [--audio-streams "1,2" \| --audio-lang jpn] [--subtitle-streams "3" \| --subtitle-lang eng] [--re-encode-video] [--extra-args "..."]` | Repack to MP4 with stream selection |
+| `media html VIDEO --subtitles SUBS [--lang eng]` | Generate HTML5 player with sidecar subtitles |
+
+#### Streaming (one-command workflow)
+
+| Command | Purpose |
+|---------|---------|
+| `stream FILE [--server nginx\|plex] [--audio-lang CODE] [--subtitle-lang CODE]` | Prepare media and print streaming URL (interactive by default) |
+| `--json stream FILE --audio-lang CODE --subtitle-lang CODE` | Non-interactive mode—use `--json` or set `NON_INTERACTIVE=1` to suppress prompts |
+
 ### Quick Examples
 
 ```bash
-# Basic streaming (uses Nginx by default)
-browser-streamer stream /path/to/movie.mp4
+# Inspect media file
+browser-streamer media info movie.mkv
 
-# Stream with Plex server
-browser-streamer stream /path/to/movie.mp4 --server=plex
+# Extract audio (Japanese) and subtitles (English)
+browser-streamer media extract-audio movie.mkv --lang jpn
+browser-streamer media extract-subs movie.mkv --lang eng --format vtt
 
-# Quick streaming without conversion
-browser-streamer stream /path/to/movie.mp4 --raw
+# Repack to MP4 with specific streams
+browser-streamer media repack movie.mkv --audio-lang jpn --subtitle-lang eng
 
-# Stream with specific audio and subtitle files
-browser-streamer stream /path/to/movie.mp4 --audio-file audio.aac --subtitle-file subs.srt
-
-# Stream directory (scans for video files)
-browser-streamer stream /path/to/media/directory/
-
-# Scan for external audio/subtitle files for single movie
-browser-streamer stream movie.mkv --scan-external
-
-# Stream with embedded subtitles
-browser-streamer stream /path/to/movie.mp4 --embed-subs --subtitle-file subs.srt
-
-# Raw streaming (no conversion, for supported formats)
-browser-streamer stream /path/to/movie.mp4 --raw
-
-# Prepare media for streaming without generating URLs (useful for batch processing)
-browser-streamer stream movie.mkv --prepare-only --audio-lang en --subtitle-lang en
-
-# Batch process TV show episodes (auto-detected)
-browser-streamer stream /path/to/tv-show-directory/ --prepare-only
+# Stream file (with specific audio and subtitle)
+browser-streamer stream movie.mp4 --audio-lang jpn --subtitle-lang eng
 ```
 
 ### Nginx
