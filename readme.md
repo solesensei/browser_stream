@@ -1,6 +1,6 @@
 # Browser Media Streamer
 
-![version](https://img.shields.io/badge/version-v0.4.0-blue.svg)
+![version](https://img.shields.io/badge/version-v0.4.1-blue.svg)
 
 A command-line tool for streaming local media files directly in web browsers. It prepares media files and configures Nginx or Plex for HTTP streaming, generating secure direct URLs that work seamlessly with online watch party platforms like [Metastream](https://app.getmetastream.com).
 
